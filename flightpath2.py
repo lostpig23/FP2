@@ -533,4 +533,4 @@ draw();
 </html>
 """
 
-components.html(html_code, height=650, scrolling=False)
+components.html(html_code, height=720, scrolling=False)
