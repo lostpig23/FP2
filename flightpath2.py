@@ -1,341 +1,136 @@
-{
- "cells": [
-  {
-   "cell_type": "code",
-   "execution_count": 1,
-   "id": "b54e85c8-11ed-4452-b837-e88f25b87c3f",
-   "metadata": {},
-   "outputs": [],
-   "source": [
-    "# !pip install ipympl"
-   ]
-  },
-  {
-   "cell_type": "code",
-   "execution_count": 2,
-   "id": "d787432d-1b95-4abf-a9f3-65e821fc3095",
-   "metadata": {},
-   "outputs": [],
-   "source": [
-    "# !pip install PyQt5"
-   ]
-  },
-  {
-   "cell_type": "code",
-   "execution_count": 3,
-   "id": "a3884b01-c624-435f-9e20-72ea01620338",
-   "metadata": {},
-   "outputs": [],
-   "source": [
-    "# %pip install pandas"
-   ]
-  },
-  {
-   "cell_type": "code",
-   "execution_count": 4,
-   "id": "316a5d32-fb37-4bbb-9984-903a0e576c6c",
-   "metadata": {},
-   "outputs": [],
-   "source": [
-    "# %pip install plotly"
-   ]
-  },
-  {
-   "cell_type": "code",
-   "execution_count": 5,
-   "id": "ab1ce65e-61c4-4878-a4bc-2cd459b5e239",
-   "metadata": {},
-   "outputs": [],
-   "source": [
-    "# %pip install streamlit"
-   ]
-  },
-  {
-   "cell_type": "code",
-   "execution_count": 8,
-   "id": "de7db9da-3f37-4bef-9870-47ada025cd80",
-   "metadata": {},
-   "outputs": [
-    {
-     "name": "stderr",
-     "output_type": "stream",
-     "text": [
-      "2026-09-25 11:29:56.515 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.\n",
-      "2026-09-25 11:29:56.525 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.\n",
-      "2026-09-25 11:29:56.528 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.\n",
-      "2026-09-25 11:29:56.537 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.\n",
-      "2026-09-25 11:29:56.538 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.\n",
-      "2026-09-25 11:29:56.539 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.\n",
-      "2026-09-25 11:29:56.540 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.\n",
-      "2026-09-25 11:29:56.541 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.\n",
-      "2026-09-25 11:29:56.542 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.\n",
-      "2026-09-25 11:29:56.543 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.\n",
-      "2026-09-25 11:29:56.544 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.\n",
-      "2026-09-25 11:29:56.545 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.\n",
-      "2026-09-25 11:29:56.546 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.\n",
-      "2026-09-25 11:29:56.548 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.\n",
-      "2026-09-25 11:29:56.549 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.\n",
-      "2026-09-25 11:29:56.551 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.\n",
-      "2026-09-25 11:29:56.554 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.\n",
-      "2026-09-25 11:29:56.560 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.\n",
-      "2026-09-25 11:29:56.562 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.\n",
-      "2026-09-25 11:29:56.565 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.\n",
-      "2026-09-25 11:29:56.568 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.\n",
-      "2026-09-25 11:29:56.569 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.\n",
-      "2026-09-25 11:29:56.570 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.\n",
-      "2026-09-25 11:29:56.571 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.\n",
-      "2026-09-25 11:29:56.572 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.\n",
-      "2026-09-25 11:29:56.573 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.\n",
-      "2026-09-25 11:29:56.574 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.\n",
-      "2026-09-25 11:29:56.575 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.\n",
-      "2026-09-25 11:29:56.576 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.\n",
-      "2026-09-25 11:29:56.576 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.\n",
-      "2026-09-25 11:29:56.578 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.\n",
-      "2026-09-25 11:29:56.579 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.\n",
-      "2026-09-25 11:29:56.581 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.\n",
-      "2026-09-25 11:29:56.582 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.\n",
-      "2026-09-25 11:29:56.585 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.\n",
-      "2026-09-25 11:29:56.586 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.\n",
-      "2026-09-25 11:29:56.587 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.\n",
-      "2026-09-25 11:29:56.588 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.\n",
-      "2026-09-25 11:29:56.589 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.\n",
-      "2026-09-25 11:29:56.590 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.\n",
-      "2026-09-25 11:29:56.591 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.\n",
-      "2026-09-25 11:29:56.592 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.\n",
-      "2026-09-25 11:29:56.593 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.\n",
-      "2026-09-25 11:29:56.594 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.\n",
-      "2026-09-25 11:29:56.595 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.\n",
-      "2026-09-25 11:29:56.596 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.\n",
-      "2026-09-25 11:29:56.600 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.\n",
-      "2026-09-25 11:29:56.601 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.\n",
-      "2026-09-25 11:29:56.603 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.\n",
-      "2026-09-25 11:29:56.604 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.\n",
-      "2026-09-25 11:29:56.605 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.\n",
-      "2026-09-25 11:29:56.606 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.\n",
-      "2026-09-25 11:29:56.607 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.\n",
-      "2026-09-25 11:29:56.608 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.\n",
-      "2026-09-25 11:29:56.609 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.\n",
-      "2026-09-25 11:29:56.610 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.\n",
-      "2026-09-25 11:29:56.611 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.\n",
-      "2026-09-25 11:29:56.612 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.\n",
-      "2026-09-25 11:29:56.612 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.\n",
-      "2026-09-25 11:29:56.617 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.\n",
-      "2026-09-25 11:29:56.641 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.\n",
-      "2026-09-25 11:29:56.801 Please replace `use_container_width` with `width`.\n",
-      "\n",
-      "`use_container_width` will be removed after 2025-12-31.\n",
-      "\n",
-      "For `use_container_width=True`, use `width='stretch'`. For `use_container_width=False`, use `width='content'`.\n",
-      "2026-09-25 11:29:56.804 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.\n",
-      "2026-09-25 11:29:56.806 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.\n",
-      "2026-09-25 11:29:56.807 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.\n",
-      "2026-09-25 11:29:56.808 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.\n",
-      "2026-09-25 11:29:56.809 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.\n",
-      "2026-09-25 11:29:56.810 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.\n",
-      "2026-09-25 11:29:56.811 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.\n",
-      "2026-09-25 11:29:56.812 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.\n",
-      "2026-09-25 11:29:56.813 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.\n",
-      "2026-09-25 11:29:56.815 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.\n",
-      "2026-09-25 11:29:56.816 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.\n",
-      "2026-09-25 11:29:56.817 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.\n",
-      "2026-09-25 11:29:56.818 Please replace `use_container_width` with `width`.\n",
-      "\n",
-      "`use_container_width` will be removed after 2025-12-31.\n",
-      "\n",
-      "For `use_container_width=True`, use `width='stretch'`. For `use_container_width=False`, use `width='content'`.\n",
-      "2026-09-25 11:29:56.821 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.\n",
-      "2026-09-25 11:29:56.823 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.\n",
-      "2026-09-25 11:29:56.824 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.\n",
-      "2026-09-25 11:29:56.825 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.\n",
-      "2026-09-25 11:29:56.827 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.\n",
-      "2026-09-25 11:29:56.828 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.\n",
-      "2026-09-25 11:29:56.829 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.\n",
-      "2026-09-25 11:29:56.833 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.\n",
-      "2026-09-25 11:29:56.833 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.\n",
-      "2026-09-25 11:29:56.834 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.\n",
-      "2026-09-25 11:29:56.835 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.\n",
-      "2026-09-25 11:29:56.836 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.\n",
-      "2026-09-25 11:29:56.837 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.\n"
-     ]
-    },
-    {
-     "data": {
-      "text/plain": [
-       "False"
-      ]
-     },
-     "execution_count": 8,
-     "metadata": {},
-     "output_type": "execute_result"
+import json
+import pandas as pd
+import plotly.graph_objects as go
+import streamlit as st
+
+st.set_page_config(page_title="Flight Profile Editor", layout="wide")
+
+# --- INITIAL DEFAULT DATA ---
+DEFAULT_POINTS = [
+    {"time_min": 1.0, "altitude_kft": 0.0, "label": "ENGINES RUNNING"},
+    {"time_min": 7.0, "altitude_kft": 0.0, "label": "180° TURN F/O & CAPT"},
+    {"time_min": 12.0, "altitude_kft": 0.0, "label": "DELAYED WINGTIPS EXTENSION"},
+    {"time_min": 15.0, "altitude_kft": 0.0, "label": "HUD TAKEOFF"},
+    {"time_min": 23.0, "altitude_kft": 40.0, "label": "VSD DEMO"},
+    {"time_min": 39.0, "altitude_kft": 40.0, "label": ""},
+    {"time_min": 41.0, "altitude_kft": 26.0, "label": "ILS"},
+    {"time_min": 45.0, "altitude_kft": 0.0, "label": ""},
+    {"time_min": 54.0, "altitude_kft": 0.0, "label": "HUD TAKEOFF"},
+    {"time_min": 55.0, "altitude_kft": 5.0, "label": "ENG FAIL R (SEVERE DAMAGE)"},
+    {"time_min": 65.0, "altitude_kft": 36.0, "label": ""},
+    {"time_min": 82.0, "altitude_kft": 36.0, "label": ""},
+    {"time_min": 83.0, "altitude_kft": 33.0, "label": "RNAV Y (LPV MINIMA)"},
+    {"time_min": 91.0, "altitude_kft": 0.0, "label": "OEI G/A & M/A"},
+    {"time_min": 99.0, "altitude_kft": 5.0, "label": "[ ] FUEL IMBALANCE"},
+    {"time_min": 104.0, "altitude_kft": 5.0, "label": "[ ] WINGTIPS DRIVE FAULT"},
+    {"time_min": 106.0, "altitude_kft": 1.5, "label": "OEI MANUAL ILS"},
+    {"time_min": 116.0, "altitude_kft": 0.0, "label": "AFTER LANDING"},
+]
+
+# Session state initialization
+if "points_df" not in st.session_state:
+    st.session_state.points_df = pd.DataFrame(DEFAULT_POINTS)
+
+# --- SIDEBAR CONTROLS ---
+st.sidebar.title("Flight Controls & Shading")
+
+st.sidebar.subheader("Vertical Shaded Bands")
+b1_l, b1_r = st.sidebar.slider("Band 1 Range (Mins)", 0.0, 120.0, (12.0, 26.0), step=0.5)
+b2_l, b2_r = st.sidebar.slider("Band 2 Range (Mins)", 0.0, 120.0, (81.0, 93.0), step=0.5)
+
+st.sidebar.subheader("Level-Off (FL) Annotations")
+fl1_text = st.sidebar.text_input("FL Label 1 Text", "FL 360")
+fl1_time = st.sidebar.number_input("FL Label 1 Time (Mins)", value=23.0, step=1.0)
+fl1_alt = st.sidebar.number_input("FL Label 1 Alt (kft)", value=34.0, step=1.0)
+
+fl2_text = st.sidebar.text_input("FL Label 2 Text", "FL 360")
+fl2_time = st.sidebar.number_input("FL Label 2 Time (Mins)", value=65.0, step=1.0)
+fl2_alt = st.sidebar.number_input("FL Label 2 Alt (kft)", value=34.0, step=1.0)
+
+# --- MAIN CONTENT ---
+st.title("Interactive Flight Profile Editor")
+
+# Render Interactive Plotly Chart
+fig = go.Figure()
+
+# Background Bands
+fig.add_vrect(x0=b1_l, x1=b1_r, fillcolor="#b9e0f7", opacity=0.6, layer="below", line_width=0)
+fig.add_vrect(x0=b2_l, x1=b2_r, fillcolor="#b9e0f7", opacity=0.6, layer="below", line_width=0)
+
+# Red Level-off Text Annotations
+if fl1_text:
+    fig.add_annotation(x=fl1_time, y=fl1_alt, text=f"<b>{fl1_text}</b>",
+                       showarrow=False, font=dict(color="red", size=13))
+if fl2_text:
+    fig.add_annotation(x=fl2_time, y=fl2_alt, text=f"<b>{fl2_text}</b>",
+                       showarrow=False, font=dict(color="red", size=13))
+
+# Profile Line & Points
+df = st.session_state.points_df.sort_values(by="time_min").reset_index(drop=True)
+fig.add_trace(go.Scatter(
+    x=df["time_min"],
+    y=df["altitude_kft"],
+    mode="lines+markers",
+    line=dict(color="#17557d", width=3),
+    marker=dict(size=8, color="#17557d"),
+    hoverinfo="text",
+    hovertext=[f"Time: {r['time_min']:.1f}m<br>Alt: {r['altitude_kft']:.1f}k<br>{r['label']}" 
+               for _, r in df.iterrows()]
+))
+
+# Waypoint Vertical Labels
+for _, row in df.iterrows():
+    if row["label"]:
+        fig.add_annotation(
+            x=row["time_min"],
+            y=row["altitude_kft"],
+            text=f"<b>{row['label']}</b>",
+            textangle=-90,
+            showarrow=False,
+            yshift=40,
+            font=dict(color="#005596", size=10)
+        )
+
+fig.update_layout(
+    plot_bgcolor="#d7ecf8",
+    paper_bgcolor="white",
+    xaxis=dict(title="<b>TIME (Mins)</b>", range=[-2, 126], dtick=10, gridcolor="#ffffff"),
+    yaxis=dict(title="<b>ALTITUDE (x1,000)</b>", range=[-2, 72], dtick=10, gridcolor="#ffffff"),
+    margin=dict(l=40, r=40, t=20, b=40),
+    height=540
+)
+
+st.plotly_chart(fig, use_container_width=True)
+
+# --- EDITABLE TABLE INTERFACE ---
+st.subheader("Edit Profile Data")
+st.markdown("Modify, add, or delete waypoints directly in the table below. Changes update the graph automatically.")
+
+edited_df = st.data_editor(
+    st.session_state.points_df,
+    num_rows="dynamic",
+    use_container_width=True,
+    column_config={
+        "time_min": st.column_config.NumberColumn("Time (Mins)", min_value=0.0, max_value=150.0, step=0.5),
+        "altitude_kft": st.column_config.NumberColumn("Altitude (x1,000)", min_value=0.0, max_value=100.0, step=0.5),
+        "label": st.column_config.TextColumn("Waypoint Label"),
     }
-   ],
-   "source": [
-    "import json\n",
-    "import pandas as pd\n",
-    "import plotly.graph_objects as go\n",
-    "import streamlit as st\n",
-    "\n",
-    "st.set_page_config(page_title=\"Flight Profile Editor\", layout=\"wide\")\n",
-    "\n",
-    "# --- INITIAL DEFAULT DATA ---\n",
-    "DEFAULT_POINTS = [\n",
-    "    {\"time_min\": 1.0, \"altitude_kft\": 0.0, \"label\": \"ENGINES RUNNING\"},\n",
-    "    {\"time_min\": 7.0, \"altitude_kft\": 0.0, \"label\": \"180° TURN F/O & CAPT\"},\n",
-    "    {\"time_min\": 12.0, \"altitude_kft\": 0.0, \"label\": \"DELAYED WINGTIPS EXTENSION\"},\n",
-    "    {\"time_min\": 15.0, \"altitude_kft\": 0.0, \"label\": \"HUD TAKEOFF\"},\n",
-    "    {\"time_min\": 23.0, \"altitude_kft\": 40.0, \"label\": \"VSD DEMO\"},\n",
-    "    {\"time_min\": 39.0, \"altitude_kft\": 40.0, \"label\": \"\"},\n",
-    "    {\"time_min\": 41.0, \"altitude_kft\": 26.0, \"label\": \"ILS\"},\n",
-    "    {\"time_min\": 45.0, \"altitude_kft\": 0.0, \"label\": \"\"},\n",
-    "    {\"time_min\": 54.0, \"altitude_kft\": 0.0, \"label\": \"HUD TAKEOFF\"},\n",
-    "    {\"time_min\": 55.0, \"altitude_kft\": 5.0, \"label\": \"ENG FAIL R (SEVERE DAMAGE)\"},\n",
-    "    {\"time_min\": 65.0, \"altitude_kft\": 36.0, \"label\": \"\"},\n",
-    "    {\"time_min\": 82.0, \"altitude_kft\": 36.0, \"label\": \"\"},\n",
-    "    {\"time_min\": 83.0, \"altitude_kft\": 33.0, \"label\": \"RNAV Y (LPV MINIMA)\"},\n",
-    "    {\"time_min\": 91.0, \"altitude_kft\": 0.0, \"label\": \"OEI G/A & M/A\"},\n",
-    "    {\"time_min\": 99.0, \"altitude_kft\": 5.0, \"label\": \"[ ] FUEL IMBALANCE\"},\n",
-    "    {\"time_min\": 104.0, \"altitude_kft\": 5.0, \"label\": \"[ ] WINGTIPS DRIVE FAULT\"},\n",
-    "    {\"time_min\": 106.0, \"altitude_kft\": 1.5, \"label\": \"OEI MANUAL ILS\"},\n",
-    "    {\"time_min\": 116.0, \"altitude_kft\": 0.0, \"label\": \"AFTER LANDING\"},\n",
-    "]\n",
-    "\n",
-    "# Session state initialization\n",
-    "if \"points_df\" not in st.session_state:\n",
-    "    st.session_state.points_df = pd.DataFrame(DEFAULT_POINTS)\n",
-    "\n",
-    "# --- SIDEBAR CONTROLS ---\n",
-    "st.sidebar.title(\"Flight Controls & Shading\")\n",
-    "\n",
-    "st.sidebar.subheader(\"Vertical Shaded Bands\")\n",
-    "b1_l, b1_r = st.sidebar.slider(\"Band 1 Range (Mins)\", 0.0, 120.0, (12.0, 26.0), step=0.5)\n",
-    "b2_l, b2_r = st.sidebar.slider(\"Band 2 Range (Mins)\", 0.0, 120.0, (81.0, 93.0), step=0.5)\n",
-    "\n",
-    "st.sidebar.subheader(\"Level-Off (FL) Annotations\")\n",
-    "fl1_text = st.sidebar.text_input(\"FL Label 1 Text\", \"FL 360\")\n",
-    "fl1_time = st.sidebar.number_input(\"FL Label 1 Time (Mins)\", value=23.0, step=1.0)\n",
-    "fl1_alt = st.sidebar.number_input(\"FL Label 1 Alt (kft)\", value=34.0, step=1.0)\n",
-    "\n",
-    "fl2_text = st.sidebar.text_input(\"FL Label 2 Text\", \"FL 360\")\n",
-    "fl2_time = st.sidebar.number_input(\"FL Label 2 Time (Mins)\", value=65.0, step=1.0)\n",
-    "fl2_alt = st.sidebar.number_input(\"FL Label 2 Alt (kft)\", value=34.0, step=1.0)\n",
-    "\n",
-    "# --- MAIN CONTENT ---\n",
-    "st.title(\"Interactive Flight Profile Editor\")\n",
-    "\n",
-    "# Render Interactive Plotly Chart\n",
-    "fig = go.Figure()\n",
-    "\n",
-    "# Background Bands\n",
-    "fig.add_vrect(x0=b1_l, x1=b1_r, fillcolor=\"#b9e0f7\", opacity=0.6, layer=\"below\", line_width=0)\n",
-    "fig.add_vrect(x0=b2_l, x1=b2_r, fillcolor=\"#b9e0f7\", opacity=0.6, layer=\"below\", line_width=0)\n",
-    "\n",
-    "# Red Level-off Text Annotations\n",
-    "if fl1_text:\n",
-    "    fig.add_annotation(x=fl1_time, y=fl1_alt, text=f\"<b>{fl1_text}</b>\",\n",
-    "                       showarrow=False, font=dict(color=\"red\", size=13))\n",
-    "if fl2_text:\n",
-    "    fig.add_annotation(x=fl2_time, y=fl2_alt, text=f\"<b>{fl2_text}</b>\",\n",
-    "                       showarrow=False, font=dict(color=\"red\", size=13))\n",
-    "\n",
-    "# Profile Line & Points\n",
-    "df = st.session_state.points_df.sort_values(by=\"time_min\").reset_index(drop=True)\n",
-    "fig.add_trace(go.Scatter(\n",
-    "    x=df[\"time_min\"],\n",
-    "    y=df[\"altitude_kft\"],\n",
-    "    mode=\"lines+markers\",\n",
-    "    line=dict(color=\"#17557d\", width=3),\n",
-    "    marker=dict(size=8, color=\"#17557d\"),\n",
-    "    hoverinfo=\"text\",\n",
-    "    hovertext=[f\"Time: {r['time_min']:.1f}m<br>Alt: {r['altitude_kft']:.1f}k<br>{r['label']}\" \n",
-    "               for _, r in df.iterrows()]\n",
-    "))\n",
-    "\n",
-    "# Waypoint Vertical Labels\n",
-    "for _, row in df.iterrows():\n",
-    "    if row[\"label\"]:\n",
-    "        fig.add_annotation(\n",
-    "            x=row[\"time_min\"],\n",
-    "            y=row[\"altitude_kft\"],\n",
-    "            text=f\"<b>{row['label']}</b>\",\n",
-    "            textangle=-90,\n",
-    "            showarrow=False,\n",
-    "            yshift=40,\n",
-    "            font=dict(color=\"#005596\", size=10)\n",
-    "        )\n",
-    "\n",
-    "fig.update_layout(\n",
-    "    plot_bgcolor=\"#d7ecf8\",\n",
-    "    paper_bgcolor=\"white\",\n",
-    "    xaxis=dict(title=\"<b>TIME (Mins)</b>\", range=[-2, 126], dtick=10, gridcolor=\"#ffffff\"),\n",
-    "    yaxis=dict(title=\"<b>ALTITUDE (x1,000)</b>\", range=[-2, 72], dtick=10, gridcolor=\"#ffffff\"),\n",
-    "    margin=dict(l=40, r=40, t=20, b=40),\n",
-    "    height=540\n",
-    ")\n",
-    "\n",
-    "st.plotly_chart(fig, use_container_width=True)\n",
-    "\n",
-    "# --- EDITABLE TABLE INTERFACE ---\n",
-    "st.subheader(\"Edit Profile Data\")\n",
-    "st.markdown(\"Modify, add, or delete waypoints directly in the table below. Changes update the graph automatically.\")\n",
-    "\n",
-    "edited_df = st.data_editor(\n",
-    "    st.session_state.points_df,\n",
-    "    num_rows=\"dynamic\",\n",
-    "    use_container_width=True,\n",
-    "    column_config={\n",
-    "        \"time_min\": st.column_config.NumberColumn(\"Time (Mins)\", min_value=0.0, max_value=150.0, step=0.5),\n",
-    "        \"altitude_kft\": st.column_config.NumberColumn(\"Altitude (x1,000)\", min_value=0.0, max_value=100.0, step=0.5),\n",
-    "        \"label\": st.column_config.TextColumn(\"Waypoint Label\"),\n",
-    "    }\n",
-    ")\n",
-    "st.session_state.points_df = edited_df\n",
-    "\n",
-    "# --- EXPORT & DOWNLOAD ---\n",
-    "export_payload = {\n",
-    "    \"points\": edited_df.to_dict(orient=\"records\"),\n",
-    "    \"bands\": [{\"left\": b1_l, \"right\": b1_r}, {\"left\": b2_l, \"right\": b2_r}],\n",
-    "    \"fl_labels\": [\n",
-    "        {\"text\": fl1_text, \"time_min\": fl1_time, \"altitude_kft\": fl1_alt},\n",
-    "        {\"text\": fl2_text, \"time_min\": fl2_time, \"altitude_kft\": fl2_alt}\n",
-    "    ]\n",
-    "}\n",
-    "\n",
-    "st.download_button(\n",
-    "    label=\"Download Flight Profile (JSON)\",\n",
-    "    data=json.dumps(export_payload, indent=4),\n",
-    "    file_name=\"flight_profile.json\",\n",
-    "    mime=\"application/json\"\n",
-    ")"
-   ]
-  },
-  {
-   "cell_type": "code",
-   "execution_count": null,
-   "id": "68b796e8-43d7-466d-be19-fbf921f58eaa",
-   "metadata": {},
-   "outputs": [],
-   "source": []
-  }
- ],
- "metadata": {
-  "kernelspec": {
-   "display_name": "Python 3 (ipykernel)",
-   "language": "python",
-   "name": "python3"
-  },
-  "language_info": {
-   "codemirror_mode": {
-    "name": "ipython",
-    "version": 3
-   },
-   "file_extension": ".py",
-   "mimetype": "text/x-python",
-   "name": "python",
-   "nbconvert_exporter": "python",
-   "pygments_lexer": "ipython3",
-   "version": "3.14.7"
-  }
- },
- "nbformat": 4,
- "nbformat_minor": 5
+)
+st.session_state.points_df = edited_df
+
+# --- EXPORT & DOWNLOAD ---
+export_payload = {
+    "points": edited_df.to_dict(orient="records"),
+    "bands": [{"left": b1_l, "right": b1_r}, {"left": b2_l, "right": b2_r}],
+    "fl_labels": [
+        {"text": fl1_text, "time_min": fl1_time, "altitude_kft": fl1_alt},
+        {"text": fl2_text, "time_min": fl2_time, "altitude_kft": fl2_alt}
+    ]
 }
+
+st.download_button(
+    label="Download Flight Profile (JSON)",
+    data=json.dumps(export_payload, indent=4),
+    file_name="flight_profile.json",
+    mime="application/json"
+)
