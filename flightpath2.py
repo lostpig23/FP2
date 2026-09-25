@@ -60,15 +60,16 @@ html_code = """
     white-space: nowrap;
   }
   .btn:hover { background: #0e3752; }
-  .btn-alt {
-    background: #2a7b62;
-  }
+  .btn-alt { background: #2a7b62; }
   .btn-alt:hover { background: #1c5543; }
   #instructions {
-    margin-top: 10px;
-    font-size: 12.5px;
-    color: #4b6577;
-    line-height: 1.5;
+    margin-top: 12px;
+    padding: 10px 14px;
+    background: #f1f5f9;
+    border-radius: 6px;
+    font-size: 13px;
+    color: #334155;
+    line-height: 1.6;
   }
 </style>
 </head>
@@ -82,7 +83,13 @@ html_code = """
     <button class="btn" onclick="saveData()">Export JSON (S)</button>
   </div>
   <div id="instructions">
-    <b>Controls:</b> Drag dots or lines to move | Double-click line to add dot | Right-click dot to delete | Click/drag inside or edges of blue bands to move/resize | Drag FL 360 red text | Press <b>J</b> to export image | Press <b>S</b> to export JSON.
+    <b>Controls:</b><br>
+    • <b>Hide dot (keep bend):</b> Right-click on a blue dot to hide the dot while preserving the corner bend.<br>
+    • <b>Revive dot:</b> Double-click any invisible bend corner to make the blue dot appear again.<br>
+    • <b>Delete corner completely:</b> Shift + Right-click on a corner to remove the bend entirely.<br>
+    • <b>Add bend & dot:</b> Double-click anywhere on a line.<br>
+    • <b>Move:</b> Drag any dot, invisible bend corner, straight line segment, band, or red FL text.<br>
+    • <b>Shortcuts:</b> Press <b>J</b> for PNG screenshot | Press <b>S</b> for JSON export.
   </div>
 </div>
 
@@ -91,11 +98,8 @@ const cv = document.getElementById('cv');
 const ctx = cv.getContext('2d');
 const labelInput = document.getElementById('label-input');
 
-// Data Coordinate Boundaries
 const X_MIN = -2, X_MAX = 126;
 const Y_MIN = -2, Y_MAX = 72;
-
-// Canvas coordinate padding
 const PAD = { left: 65, right: 35, top: 35, bottom: 55 };
 
 function toScreenX(x) {
@@ -111,26 +115,26 @@ function toDataY(py) {
   return Y_MIN + (cv.height - PAD.bottom - py) / (cv.height - PAD.top - PAD.bottom) * (Y_MAX - Y_MIN);
 }
 
-// Initial Waypoints
+// Points: hasDot controls if the checkpoint dot and label are rendered
 let points = [
-  { x: 1.0, y: 0.0, label: "ENGINES RUNNING" },
-  { x: 7.0, y: 0.0, label: "180° TURN F/O & CAPT" },
-  { x: 12.0, y: 0.0, label: "DELAYED WINGTIPS EXTENSION" },
-  { x: 15.0, y: 0.0, label: "HUD TAKEOFF" },
-  { x: 23.0, y: 40.0, label: "VSD DEMO" },
-  { x: 39.0, y: 40.0, label: "" },
-  { x: 41.0, y: 26.0, label: "ILS" },
-  { x: 45.0, y: 0.0, label: "" },
-  { x: 54.0, y: 0.0, label: "HUD TAKEOFF" },
-  { x: 55.0, y: 5.0, label: "ENG FAIL R (SEVERE DAMAGE)" },
-  { x: 65.0, y: 36.0, label: "" },
-  { x: 82.0, y: 36.0, label: "" },
-  { x: 83.0, y: 33.0, label: "RNAV Y (LPV MINIMA)" },
-  { x: 91.0, y: 0.0, label: "OEI G/A & M/A" },
-  { x: 99.0, y: 5.0, label: "[ ] FUEL IMBALANCE" },
-  { x: 104.0, y: 5.0, label: "[ ] WINGTIPS DRIVE FAULT" },
-  { x: 106.0, y: 1.5, label: "OEI MANUAL ILS" },
-  { x: 116.0, y: 0.0, label: "AFTER LANDING" }
+  { x: 1.0, y: 0.0, label: "ENGINES RUNNING", hasDot: true },
+  { x: 7.0, y: 0.0, label: "180° TURN F/O & CAPT", hasDot: true },
+  { x: 12.0, y: 0.0, label: "DELAYED WINGTIPS EXTENSION", hasDot: true },
+  { x: 15.0, y: 0.0, label: "HUD TAKEOFF", hasDot: true },
+  { x: 23.0, y: 40.0, label: "VSD DEMO", hasDot: true },
+  { x: 39.0, y: 40.0, label: "", hasDot: false }, // Invisible corner (top of descent)
+  { x: 41.0, y: 26.0, label: "ILS", hasDot: true },
+  { x: 45.0, y: 0.0, label: "", hasDot: false }, // Invisible corner (touchdown)
+  { x: 54.0, y: 0.0, label: "HUD TAKEOFF", hasDot: true },
+  { x: 55.0, y: 5.0, label: "ENG FAIL R (SEVERE DAMAGE)", hasDot: true },
+  { x: 65.0, y: 36.0, label: "", hasDot: false }, // Invisible corner
+  { x: 82.0, y: 36.0, label: "", hasDot: false }, // Invisible corner
+  { x: 83.0, y: 33.0, label: "RNAV Y (LPV MINIMA)", hasDot: true },
+  { x: 91.0, y: 0.0, label: "OEI G/A & M/A", hasDot: true },
+  { x: 99.0, y: 5.0, label: "[ ] FUEL IMBALANCE", hasDot: true },
+  { x: 104.0, y: 5.0, label: "[ ] WINGTIPS DRIVE FAULT", hasDot: true },
+  { x: 106.0, y: 1.5, label: "OEI MANUAL ILS", hasDot: true },
+  { x: 116.0, y: 0.0, label: "AFTER LANDING", hasDot: true }
 ];
 
 let bands = [
@@ -151,12 +155,11 @@ let selectedFlIdx = null;
 let dragStart = null;
 let activeTarget = null;
 let hoveredTooltip = null;
+let hoveredVertexIdx = null;
 
-// Drawing function (hideUI = true when taking a screenshot)
 function draw(hideUI = false) {
   ctx.clearRect(0, 0, cv.width, cv.height);
 
-  // Background Fill
   ctx.fillStyle = "#ffffff";
   ctx.fillRect(0, 0, cv.width, cv.height);
 
@@ -186,7 +189,6 @@ function draw(hideUI = false) {
   ctx.fillStyle = "#2c3e50";
   ctx.font = "bold 11px sans-serif";
 
-  // X-Ticks
   for (let x = 0; x <= 120; x += 30) {
     const sx = toScreenX(x);
     ctx.beginPath();
@@ -196,7 +198,6 @@ function draw(hideUI = false) {
   }
   ctx.fillText("TIME (Mins)", (pL + pR) / 2 - 35, pB + 40);
 
-  // Y-Ticks
   for (let y = 0; y <= 70; y += 10) {
     const sy = toScreenY(y);
     ctx.beginPath();
@@ -205,7 +206,6 @@ function draw(hideUI = false) {
     ctx.fillText(y.toString(), pL - 25, sy + 4);
   }
 
-  // Y Label rotated
   ctx.save();
   ctx.translate(18, (pT + pB) / 2);
   ctx.rotate(-Math.PI / 2);
@@ -219,7 +219,7 @@ function draw(hideUI = false) {
     ctx.fillText(fl.text, toScreenX(fl.x), toScreenY(fl.y));
   });
 
-  // 4. Flight Profile Line
+  // 4. Flight Profile Continuous Line (Bends through all points)
   if (points.length > 1) {
     ctx.strokeStyle = "#17557d";
     ctx.lineWidth = 2.8;
@@ -231,40 +231,53 @@ function draw(hideUI = false) {
     ctx.stroke();
   }
 
-  // 5. Checkpoints & Vertical Labels
+  // 5. Checkpoints & Vertices
   points.forEach((pt, i) => {
     const sx = toScreenX(pt.x);
     const sy = toScreenY(pt.y);
 
-    // Dot
-    ctx.fillStyle = "#17557d";
-    ctx.beginPath();
-    ctx.arc(sx, sy, 5.5, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Red Selection Ring (hidden during image export)
-    if (!hideUI && activeTarget && activeTarget.type === 'point' && activeTarget.idx === i) {
-      ctx.strokeStyle = "#ff4b4b";
-      ctx.lineWidth = 2.5;
+    if (pt.hasDot) {
+      // Visible Checkpoint Dot
+      ctx.fillStyle = "#17557d";
       ctx.beginPath();
-      ctx.arc(sx, sy, 8, 0, Math.PI * 2);
-      ctx.stroke();
-    }
+      ctx.arc(sx, sy, 5.5, 0, Math.PI * 2);
+      ctx.fill();
 
-    // Vertical text label
-    if (pt.label) {
-      ctx.save();
-      ctx.translate(sx, sy - 10);
-      ctx.rotate(-Math.PI / 2);
-      ctx.fillStyle = "#005596";
-      ctx.font = "600 10.5px sans-serif";
-      ctx.textAlign = "left";
-      ctx.fillText(pt.label, 0, 3.5);
-      ctx.restore();
+      // Red Selection Ring
+      if (!hideUI && activeTarget && activeTarget.type === 'point' && activeTarget.idx === i) {
+        ctx.strokeStyle = "#ff4b4b";
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.arc(sx, sy, 8, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+
+      // Vertical text label
+      if (pt.label) {
+        ctx.save();
+        ctx.translate(sx, sy - 10);
+        ctx.rotate(-Math.PI / 2);
+        ctx.fillStyle = "#005596";
+        ctx.font = "600 10.5px sans-serif";
+        ctx.textAlign = "left";
+        ctx.fillText(pt.label, 0, 3.5);
+        ctx.restore();
+      }
+    } else {
+      // Invisible Corner (Draw subtle halo only when hovered or selected)
+      if (!hideUI && (hoveredVertexIdx === i || (activeTarget && activeTarget.type === 'point' && activeTarget.idx === i))) {
+        ctx.strokeStyle = "rgba(23, 85, 125, 0.45)";
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([3, 3]);
+        ctx.beginPath();
+        ctx.arc(sx, sy, 6, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
     }
   });
 
-  // 6. Tooltip HUD (hidden during image export)
+  // 6. Tooltip HUD
   if (!hideUI && hoveredTooltip) {
     ctx.fillStyle = "rgba(30, 30, 30, 0.85)";
     ctx.roundRect(hoveredTooltip.x + 10, hoveredTooltip.y - 30, hoveredTooltip.text.length * 7 + 16, 24, 4);
@@ -275,7 +288,6 @@ function draw(hideUI = false) {
   }
 }
 
-// Distance helper
 function distToSegment(px, py, x1, y1, x2, y2) {
   const dx = x2 - x1, dy = y2 - y1;
   const len2 = dx * dx + dy * dy;
@@ -284,7 +296,6 @@ function distToSegment(px, py, x1, y1, x2, y2) {
   return Math.hypot(px - (x1 + t * dx), py - (y1 + t * dy));
 }
 
-// Event Handlers
 cv.addEventListener('mousedown', (e) => {
   const rect = cv.getBoundingClientRect();
   const mx = e.clientX - rect.left;
@@ -292,14 +303,25 @@ cv.addEventListener('mousedown', (e) => {
   const dataX = toDataX(mx);
   const dataY = toDataY(my);
 
-  // 1. Right Click: Delete point
+  // --- RIGHT CLICK: Toggle Dot vs Complete Delete ---
   if (e.button === 2) {
     e.preventDefault();
     for (let i = 0; i < points.length; i++) {
-      if (Math.hypot(toScreenX(points[i].x) - mx, toScreenY(points[i].y) - my) < 12 && points.length > 2) {
-        points.splice(i, 1);
-        activeTarget = null;
-        labelInput.value = "";
+      if (Math.hypot(toScreenX(points[i].x) - mx, toScreenY(points[i].y) - my) < 12) {
+        if (e.shiftKey) {
+          // SHIFT + RIGHT CLICK: Completely remove the bend
+          if (points.length > 2) {
+            points.splice(i, 1);
+            activeTarget = null;
+            labelInput.value = "";
+          }
+        } else {
+          // RIGHT CLICK: Remove dot/label, but KEEP THE BEND
+          points[i].hasDot = false;
+          points[i].label = "";
+          activeTarget = null;
+          labelInput.value = "";
+        }
         draw();
         return;
       }
@@ -309,7 +331,7 @@ cv.addEventListener('mousedown', (e) => {
 
   if (e.button !== 0) return;
 
-  // 2. Check FL Labels
+  // --- LEFT CLICK: FL LABELS ---
   for (let i = 0; i < flLabels.length; i++) {
     const sx = toScreenX(flLabels[i].x), sy = toScreenY(flLabels[i].y);
     if (mx >= sx - 4 && mx <= sx + 60 && my >= sy - 16 && my <= sy + 4) {
@@ -323,20 +345,20 @@ cv.addEventListener('mousedown', (e) => {
     }
   }
 
-  // 3. Check Waypoint Dots
+  // --- LEFT CLICK: ALL VERTICES (Visible dots AND invisible bends) ---
   for (let i = 0; i < points.length; i++) {
     if (Math.hypot(toScreenX(points[i].x) - mx, toScreenY(points[i].y) - my) < 12) {
       selectedPointIdx = i;
       activeTarget = { type: 'point', idx: i };
       labelInput.value = points[i].label;
-      labelInput.focus();
+      if (points[i].hasDot) labelInput.focus();
       hoveredTooltip = { x: mx, y: my, text: `T: ${points[i].x.toFixed(1)}m | Alt: ${points[i].y.toFixed(1)}k` };
       draw();
       return;
     }
   }
 
-  // 4. Check Line Segments
+  // --- LEFT CLICK: SEGMENT DRAGGING ---
   for (let i = 0; i < points.length - 1; i++) {
     const d = distToSegment(mx, my, toScreenX(points[i].x), toScreenY(points[i].y), toScreenX(points[i + 1].x), toScreenY(points[i + 1].y));
     if (d < 8) {
@@ -347,7 +369,7 @@ cv.addEventListener('mousedown', (e) => {
     }
   }
 
-  // 5. Check Bands
+  // --- LEFT CLICK: BANDS ---
   const edgeThreshold = 2.0;
   for (let i = 0; i < bands.length; i++) {
     if (Math.abs(dataX - bands[i].left) <= edgeThreshold) {
@@ -369,16 +391,30 @@ cv.addEventListener('mousedown', (e) => {
   }
 });
 
-// Double click: Add new dot along line
+// DOUBLE CLICK: Revive invisible dot OR add new bend along line
 cv.addEventListener('dblclick', (e) => {
   const rect = cv.getBoundingClientRect();
   const mx = e.clientX - rect.left;
   const my = e.clientY - rect.top;
 
+  // 1. If double clicking an existing invisible corner, turn dot back ON
+  for (let i = 0; i < points.length; i++) {
+    if (Math.hypot(toScreenX(points[i].x) - mx, toScreenY(points[i].y) - my) < 14) {
+      points[i].hasDot = true;
+      if (!points[i].label) points[i].label = "WAYPOINT";
+      activeTarget = { type: 'point', idx: i };
+      labelInput.value = points[i].label;
+      labelInput.focus();
+      draw();
+      return;
+    }
+  }
+
+  // 2. Otherwise insert a new vertex along the line
   for (let i = 0; i < points.length - 1; i++) {
     const d = distToSegment(mx, my, toScreenX(points[i].x), toScreenY(points[i].y), toScreenX(points[i + 1].x), toScreenY(points[i + 1].y));
     if (d < 10) {
-      const newPt = { x: toDataX(mx), y: Math.max(0, toDataY(my)), label: "WAYPOINT" };
+      const newPt = { x: toDataX(mx), y: Math.max(0, toDataY(my)), label: "WAYPOINT", hasDot: true };
       points.splice(i + 1, 0, newPt);
       activeTarget = { type: 'point', idx: i + 1 };
       labelInput.value = newPt.label;
@@ -396,7 +432,7 @@ window.addEventListener('mousemove', (e) => {
   const dataX = toDataX(mx);
   const dataY = toDataY(my);
 
-  // Moving single dot
+  // Moving a vertex (dot or corner)
   if (selectedPointIdx !== null) {
     const idx = selectedPointIdx;
     const minX = idx > 0 ? points[idx - 1].x + 0.1 : X_MIN;
@@ -408,7 +444,7 @@ window.addEventListener('mousemove', (e) => {
     return;
   }
 
-  // Moving line segment
+  // Moving a line segment
   if (selectedSegmentIdx !== null) {
     const dx = dataX - dragStart.x;
     const dy = dataY - dragStart.y;
@@ -437,7 +473,7 @@ window.addEventListener('mousemove', (e) => {
     return;
   }
 
-  // Moving or resizing band
+  // Moving/resizing band
   if (selectedBandIdx !== null) {
     const dx = dataX - dragStart.x;
     const b = bands[selectedBandIdx];
@@ -453,19 +489,26 @@ window.addEventListener('mousemove', (e) => {
     return;
   }
 
-  // Cursor updates on hover
+  // Hover detection for vertices
+  hoveredVertexIdx = null;
   let cursor = 'default';
-  for (let i = 0; i < bands.length; i++) {
-    if (Math.abs(dataX - bands[i].left) <= 2.0 || Math.abs(dataX - bands[i].right) <= 2.0) {
-      cursor = 'ew-resize'; break;
-    }
-  }
   for (let i = 0; i < points.length; i++) {
     if (Math.hypot(toScreenX(points[i].x) - mx, toScreenY(points[i].y) - my) < 12) {
-      cursor = 'pointer'; break;
+      hoveredVertexIdx = i;
+      cursor = 'pointer';
+      break;
+    }
+  }
+
+  if (cursor === 'default') {
+    for (let i = 0; i < bands.length; i++) {
+      if (Math.abs(dataX - bands[i].left) <= 2.0 || Math.abs(dataX - bands[i].right) <= 2.0) {
+        cursor = 'ew-resize'; break;
+      }
     }
   }
   cv.style.cursor = cursor;
+  draw();
 });
 
 window.addEventListener('mouseup', () => {
@@ -478,34 +521,38 @@ window.addEventListener('mouseup', () => {
   draw();
 });
 
-// Update text label on input
 labelInput.addEventListener('input', (e) => {
   if (!activeTarget) return;
   if (activeTarget.type === 'point' && points[activeTarget.idx]) {
     points[activeTarget.idx].label = e.target.value;
+    if (e.target.value.trim() !== '') {
+      points[activeTarget.idx].hasDot = true;
+    }
   } else if (activeTarget.type === 'fl' && flLabels[activeTarget.idx]) {
     flLabels[activeTarget.idx].text = e.target.value;
   }
   draw();
 });
 
-// Context menu disable on canvas for right click delete
 cv.addEventListener('contextmenu', e => e.preventDefault());
 
-// Save to PNG Image
 function saveImage() {
-  draw(true); // Draw without selection rings or tooltips
+  draw(true);
   const a = document.createElement('a');
   a.href = cv.toDataURL('image/png');
   a.download = 'flight_profile.png';
   a.click();
-  draw(false); // Restore UI elements
+  draw(false);
 }
 
-// Save to JSON
 function saveData() {
   const payload = {
-    points: points.map(p => ({ time_min: +p.x.toFixed(2), altitude_kft: +p.y.toFixed(2), label: p.label })),
+    points: points.map(p => ({
+      time_min: +p.x.toFixed(2),
+      altitude_kft: +p.y.toFixed(2),
+      label: p.label,
+      hasDot: p.hasDot
+    })),
     bands: bands.map(b => ({ left: +b.left.toFixed(2), right: +b.right.toFixed(2) })),
     fl_labels: flLabels.map(f => ({ text: f.text, time_min: +f.x.toFixed(2), altitude_kft: +f.y.toFixed(2) }))
   };
@@ -516,7 +563,6 @@ function saveData() {
   a.click();
 }
 
-// Hotkey listener for J and S
 window.addEventListener('keydown', (e) => {
   if (document.activeElement !== labelInput) {
     if (e.key === 'j' || e.key === 'J') {
