@@ -49,16 +49,21 @@ html_code = """
     box-shadow: 0 0 0 2px rgba(23,85,125,0.2);
   }
   .btn {
-    padding: 8px 16px;
-    font-size: 14px;
+    padding: 8px 14px;
+    font-size: 13.5px;
     font-weight: 600;
     color: white;
     background: #17557d;
     border: none;
     border-radius: 4px;
     cursor: pointer;
+    white-space: nowrap;
   }
   .btn:hover { background: #0e3752; }
+  .btn-alt {
+    background: #2a7b62;
+  }
+  .btn-alt:hover { background: #1c5543; }
   #instructions {
     margin-top: 10px;
     font-size: 12.5px;
@@ -73,10 +78,11 @@ html_code = """
   <div id="editor-bar">
     <label for="label-input" style="font-weight: bold; font-size: 13px; color: #17557d;">Edit Selected Label:</label>
     <input type="text" id="label-input" placeholder="Click any point or FL label to edit..." />
+    <button class="btn btn-alt" onclick="saveImage()">Export Image (J)</button>
     <button class="btn" onclick="saveData()">Export JSON (S)</button>
   </div>
   <div id="instructions">
-    <b>Controls:</b> Drag dots or lines to move | Double-click line to add dot | Right-click dot to delete | Click/drag inside or edges of blue bands to move/resize | Drag FL 360 red text | Press <b>S</b> to export JSON.
+    <b>Controls:</b> Drag dots or lines to move | Double-click line to add dot | Right-click dot to delete | Click/drag inside or edges of blue bands to move/resize | Drag FL 360 red text | Press <b>J</b> to export image | Press <b>S</b> to export JSON.
   </div>
 </div>
 
@@ -140,30 +146,32 @@ let flLabels = [
 let selectedPointIdx = null;
 let selectedSegmentIdx = null;
 let selectedBandIdx = null;
-let bandDragMode = null; // 'move', 'left_edge', 'right_edge'
+let bandDragMode = null;
 let selectedFlIdx = null;
 let dragStart = null;
-let activeTarget = null; // { type: 'point'|'fl', idx: number }
+let activeTarget = null;
 let hoveredTooltip = null;
 
-// Drawing function
-function draw() {
+// Drawing function (hideUI = true when taking a screenshot)
+function draw(hideUI = false) {
   ctx.clearRect(0, 0, cv.width, cv.height);
 
-  // Background
+  // Background Fill
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, cv.width, cv.height);
+
   const pL = toScreenX(X_MIN), pR = toScreenX(X_MAX);
   const pT = toScreenY(Y_MAX), pB = toScreenY(Y_MIN);
   ctx.fillStyle = "#d7ecf8";
   ctx.fillRect(pL, pT, pR - pL, pB - pT);
 
   // 1. Shaded Bands
-  bands.forEach((b, i) => {
+  bands.forEach((b) => {
     const bx1 = toScreenX(b.left);
     const bx2 = toScreenX(b.right);
     ctx.fillStyle = "rgba(185, 224, 247, 0.75)";
     ctx.fillRect(bx1, pT, bx2 - bx1, pB - pT);
 
-    // Subtle edge indicators
     ctx.strokeStyle = "rgba(140, 190, 225, 0.8)";
     ctx.lineWidth = 1.5;
     ctx.beginPath();
@@ -196,6 +204,7 @@ function draw() {
     ctx.stroke();
     ctx.fillText(y.toString(), pL - 25, sy + 4);
   }
+
   // Y Label rotated
   ctx.save();
   ctx.translate(18, (pT + pB) / 2);
@@ -204,7 +213,7 @@ function draw() {
   ctx.restore();
 
   // 3. FL 360 Labels
-  flLabels.forEach((fl, idx) => {
+  flLabels.forEach((fl) => {
     ctx.fillStyle = "red";
     ctx.font = "bold 13px sans-serif";
     ctx.fillText(fl.text, toScreenX(fl.x), toScreenY(fl.y));
@@ -233,8 +242,8 @@ function draw() {
     ctx.arc(sx, sy, 5.5, 0, Math.PI * 2);
     ctx.fill();
 
-    // Active Selection Ring
-    if (activeTarget && activeTarget.type === 'point' && activeTarget.idx === i) {
+    // Red Selection Ring (hidden during image export)
+    if (!hideUI && activeTarget && activeTarget.type === 'point' && activeTarget.idx === i) {
       ctx.strokeStyle = "#ff4b4b";
       ctx.lineWidth = 2.5;
       ctx.beginPath();
@@ -255,8 +264,8 @@ function draw() {
     }
   });
 
-  // 6. Tooltip HUD
-  if (hoveredTooltip) {
+  // 6. Tooltip HUD (hidden during image export)
+  if (!hideUI && hoveredTooltip) {
     ctx.fillStyle = "rgba(30, 30, 30, 0.85)";
     ctx.roundRect(hoveredTooltip.x + 10, hoveredTooltip.y - 30, hoveredTooltip.text.length * 7 + 16, 24, 4);
     ctx.fill();
@@ -338,8 +347,8 @@ cv.addEventListener('mousedown', (e) => {
     }
   }
 
-  // 5. Check Bands (Edge resize or body drag)
-  const edgeThreshold = 2.0; // Time units
+  // 5. Check Bands
+  const edgeThreshold = 2.0;
   for (let i = 0; i < bands.length; i++) {
     if (Math.abs(dataX - bands[i].left) <= edgeThreshold) {
       selectedBandIdx = i;
@@ -483,6 +492,16 @@ labelInput.addEventListener('input', (e) => {
 // Context menu disable on canvas for right click delete
 cv.addEventListener('contextmenu', e => e.preventDefault());
 
+// Save to PNG Image
+function saveImage() {
+  draw(true); // Draw without selection rings or tooltips
+  const a = document.createElement('a');
+  a.href = cv.toDataURL('image/png');
+  a.download = 'flight_profile.png';
+  a.click();
+  draw(false); // Restore UI elements
+}
+
 // Save to JSON
 function saveData() {
   const payload = {
@@ -497,9 +516,14 @@ function saveData() {
   a.click();
 }
 
+// Hotkey listener for J and S
 window.addEventListener('keydown', (e) => {
-  if ((e.key === 's' || e.key === 'S') && document.activeElement !== labelInput) {
-    saveData();
+  if (document.activeElement !== labelInput) {
+    if (e.key === 'j' || e.key === 'J') {
+      saveImage();
+    } else if (e.key === 's' || e.key === 'S') {
+      saveData();
+    }
   }
 });
 
