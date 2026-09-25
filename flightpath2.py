@@ -84,6 +84,7 @@ html_code = """
   </div>
   <div id="instructions">
     <b>Controls:</b><br>
+    • <b>Create dot:</b> Double-click anywhere on the line.<br>
     • <b>Hide dot (keep bend):</b> Right-click on a blue dot to hide the dot while preserving the corner bend.<br>
     • <b>Revive dot:</b> Double-click any invisible bend corner to make the blue dot appear again.<br>
     • <b>Delete corner completely:</b> Shift + Right-click on a corner to remove the bend entirely.<br>
