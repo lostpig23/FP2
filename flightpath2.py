@@ -217,39 +217,69 @@ function draw(hideUI = false) {
 
   const pL = toScreenX(X_MIN), pR = toScreenX(X_MAX);
   const pT = toScreenY(Y_MAX), pB = toScreenY(Y_MIN);
+  const totalW = pR - pL;
+  const totalH = pB - pT;
 
-  // Background Sky Blue (Matching Profile B base tone)
-  ctx.fillStyle = "#9cc5e8";
-  ctx.fillRect(pL, pT, pR - pL, pB - pT);
+  // -------------------------------------------------------------
+  // 1. THREE-TIERED BACKGROUND GRADIENT (Light Middle -> Med -> Dark Edges)
+  // -------------------------------------------------------------
+  // Darkest: #82b0d8  |  Medium: #b2d2ec  |  Light (Center): #f1f7fc
+  const bgGrad = ctx.createLinearGradient(pL, 0, pR, 0);
+  bgGrad.addColorStop(0.00, "#82b0d8"); // Left: Dark Blue
+  bgGrad.addColorStop(0.24, "#82b0d8"); // Left Dark shelf
+  bgGrad.addColorStop(0.33, "#b2d2ec"); // Mid-Left: Medium Blue
+  bgGrad.addColorStop(0.44, "#f1f7fc"); // Center: Lightest White-Blue
+  bgGrad.addColorStop(0.56, "#f1f7fc"); // Center peak width
+  bgGrad.addColorStop(0.67, "#b2d2ec"); // Mid-Right: Medium Blue
+  bgGrad.addColorStop(0.76, "#82b0d8"); // Right Dark shelf
+  bgGrad.addColorStop(1.00, "#82b0d8"); // Right: Dark Blue
 
-  // 1. Shaded Columns with Profile B Gradient (Soft Blue -> Light Center -> Soft Blue)
+  ctx.fillStyle = bgGrad;
+  ctx.fillRect(pL, pT, totalW, totalH);
+
+  // Subtle vertical section separators (matching Profile B column dividers)
+  ctx.strokeStyle = "rgba(255, 255, 255, 0.4)";
+  ctx.lineWidth = 1.0;
+  [0.25, 0.38, 0.62, 0.75].forEach(ratio => {
+    const divX = pL + totalW * ratio;
+    ctx.beginPath();
+    ctx.moveTo(divX, pT); ctx.lineTo(divX, pB);
+    ctx.stroke();
+  });
+
+  // -------------------------------------------------------------
+  // 2. SHADED OPERATIONAL BANDS WITH 3-TIER LIGHT->MED->DARK ACCENTS
+  // -------------------------------------------------------------
   bands.forEach((b) => {
     const bx1 = toScreenX(b.left);
     const bx2 = toScreenX(b.right);
     const width = Math.max(1, bx2 - bx1);
 
-    // Create horizontal gradient across the band
-    const grad = ctx.createLinearGradient(bx1, 0, bx2, 0);
-    grad.addColorStop(0.00, "#a8cde8");               // Outer soft blue
-    grad.addColorStop(0.20, "#cbe3f5");               // Transition
-    grad.addColorStop(0.50, "rgba(250, 253, 255, 0.95)"); // Center white/luminous peak
-    grad.addColorStop(0.80, "#cbe3f5");               // Transition
-    grad.addColorStop(1.00, "#a8cde8");               // Outer soft blue
+    // Symmetric 3-tier gradient inside the draggable band:
+    // Center: Lightest (#ffffff) -> Mid: Medium (#d0e5f7) -> Edge: Darker (#a0c5e5)
+    const bandGrad = ctx.createLinearGradient(bx1, 0, bx2, 0);
+    bandGrad.addColorStop(0.00, "rgba(160, 197, 229, 0.85)"); // Outer: Dark tier
+    bandGrad.addColorStop(0.25, "rgba(208, 229, 247, 0.90)"); // Middle: Medium tier
+    bandGrad.addColorStop(0.50, "rgba(255, 255, 255, 0.98)"); // Center: Light tier
+    bandGrad.addColorStop(0.75, "rgba(208, 229, 247, 0.90)"); // Middle: Medium tier
+    bandGrad.addColorStop(1.00, "rgba(160, 197, 229, 0.85)"); // Outer: Dark tier
 
-    ctx.fillStyle = grad;
-    ctx.fillRect(bx1, pT, width, pB - pT);
+    ctx.fillStyle = bandGrad;
+    ctx.fillRect(bx1, pT, width, totalH);
 
-    // Subtle crisp column borders
-    ctx.strokeStyle = "rgba(100, 155, 195, 0.65)";
-    ctx.lineWidth = 1.0;
+    // Band border definition
+    ctx.strokeStyle = "rgba(70, 130, 180, 0.7)";
+    ctx.lineWidth = 1.2;
     ctx.beginPath();
     ctx.moveTo(bx1, pT); ctx.lineTo(bx1, pB);
     ctx.moveTo(bx2, pT); ctx.lineTo(bx2, pB);
     ctx.stroke();
   });
 
-  // 2. Axes & Tick Marks
-  ctx.strokeStyle = "#ffffff";
+  // -------------------------------------------------------------
+  // 3. AXES & TICKS
+  // -------------------------------------------------------------
+  ctx.strokeStyle = "rgba(255, 255, 255, 0.7)";
   ctx.lineWidth = 1;
   ctx.fillStyle = "#1e293b";
   ctx.font = "bold 11px sans-serif";
@@ -280,17 +310,21 @@ function draw(hideUI = false) {
   ctx.fillText("ALTITUDE (x1,000)", -55, 0);
   ctx.restore();
 
-  // 3. FL 360 Labels
+  // -------------------------------------------------------------
+  // 4. FL 360 LABELS
+  // -------------------------------------------------------------
   flLabels.forEach((fl) => {
-    ctx.fillStyle = "#d92323";
+    ctx.fillStyle = "#cc1818";
     ctx.font = "bold 13px sans-serif";
     ctx.fillText(fl.text, toScreenX(fl.x), toScreenY(fl.y));
   });
 
-  // 4. Flight Profile Line (Crisp high-contrast navy)
+  // -------------------------------------------------------------
+  // 5. FLIGHT PROFILE PATH
+  // -------------------------------------------------------------
   if (points.length > 1) {
-    ctx.strokeStyle = "#0b375b";
-    ctx.lineWidth = 2.8;
+    ctx.strokeStyle = "#082f4d";
+    ctx.lineWidth = 3.0;
     ctx.beginPath();
     ctx.moveTo(toScreenX(points[0].x), toScreenY(points[0].y));
     for (let i = 1; i < points.length; i++) {
@@ -299,7 +333,9 @@ function draw(hideUI = false) {
     ctx.stroke();
   }
 
-  // 5. Checkpoints & Vertices
+  // -------------------------------------------------------------
+  // 6. CHECKPOINTS & VERTICAL LABELS
+  // -------------------------------------------------------------
   points.forEach((pt, i) => {
     const sx = toScreenX(pt.x);
     const sy = toScreenY(pt.y);
@@ -310,9 +346,8 @@ function draw(hideUI = false) {
       ctx.arc(sx, sy, 5.5, 0, Math.PI * 2);
       ctx.fill();
 
-      // Dot ring highlight
       ctx.strokeStyle = "#ffffff";
-      ctx.lineWidth = 1.0;
+      ctx.lineWidth = 1.2;
       ctx.stroke();
 
       if (!hideUI && activeTarget && activeTarget.type === 'point' && activeTarget.idx === i) {
@@ -327,7 +362,7 @@ function draw(hideUI = false) {
         ctx.save();
         ctx.translate(sx, sy - 10);
         ctx.rotate(-Math.PI / 2);
-        ctx.fillStyle = "#004880";
+        ctx.fillStyle = "#004075";
         ctx.font = "600 10.5px sans-serif";
         ctx.textAlign = "left";
         ctx.fillText(pt.label, 0, 3.5);
@@ -335,7 +370,7 @@ function draw(hideUI = false) {
       }
     } else {
       if (!hideUI && (hoveredVertexIdx === i || (activeTarget && activeTarget.type === 'point' && activeTarget.idx === i))) {
-        ctx.strokeStyle = "rgba(11, 55, 91, 0.5)";
+        ctx.strokeStyle = "rgba(8, 47, 77, 0.55)";
         ctx.lineWidth = 1.5;
         ctx.setLineDash([3, 3]);
         ctx.beginPath();
@@ -346,9 +381,11 @@ function draw(hideUI = false) {
     }
   });
 
-  // 6. Tooltip HUD
+  // -------------------------------------------------------------
+  // 7. TOOLTIP HUD
+  // -------------------------------------------------------------
   if (!hideUI && hoveredTooltip) {
-    ctx.fillStyle = "rgba(20, 25, 30, 0.88)";
+    ctx.fillStyle = "rgba(18, 24, 32, 0.90)";
     ctx.roundRect(hoveredTooltip.x + 10, hoveredTooltip.y - 30, hoveredTooltip.text.length * 7 + 16, 24, 4);
     ctx.fill();
     ctx.fillStyle = "#ffffff";
