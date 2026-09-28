@@ -26,7 +26,7 @@ html_code = """
   }
   canvas {
     display: block;
-    border: 1px solid #c8d9e6;
+    border: 1px solid #7eaac7;
     border-radius: 4px;
     cursor: default;
   }
@@ -132,7 +132,6 @@ const ctx = cv.getContext('2d');
 const labelInput = document.getElementById('label-input');
 const maxTimeInput = document.getElementById('max-time-input');
 
-// Data Coordinate Boundaries
 let userMaxTime = 120.0;
 let X_MIN = -2;
 let X_MAX = 126.0;
@@ -141,7 +140,6 @@ const PAD = { left: 65, right: 35, top: 35, bottom: 55 };
 
 function updateXLimits(newMaxTime) {
   userMaxTime = Math.max(20, newMaxTime);
-  // Give 5% padding on the right side
   X_MIN = - (userMaxTime * 0.02);
   X_MAX = userMaxTime + (userMaxTime * 0.05);
 }
@@ -202,7 +200,6 @@ let activeTarget = null;
 let hoveredTooltip = null;
 let hoveredVertexIdx = null;
 
-// Determine clean tick intervals based on total duration
 function calculateTickStep(maxVal) {
   const roughSteps = maxVal / 5;
   if (roughSteps <= 10) return 5;
@@ -220,18 +217,31 @@ function draw(hideUI = false) {
 
   const pL = toScreenX(X_MIN), pR = toScreenX(X_MAX);
   const pT = toScreenY(Y_MAX), pB = toScreenY(Y_MIN);
-  ctx.fillStyle = "#d7ecf8";
+
+  // Background Sky Blue (Matching Profile B base tone)
+  ctx.fillStyle = "#9cc5e8";
   ctx.fillRect(pL, pT, pR - pL, pB - pT);
 
-  // 1. Shaded Bands
+  // 1. Shaded Columns with Profile B Gradient (Soft Blue -> Light Center -> Soft Blue)
   bands.forEach((b) => {
     const bx1 = toScreenX(b.left);
     const bx2 = toScreenX(b.right);
-    ctx.fillStyle = "rgba(185, 224, 247, 0.75)";
-    ctx.fillRect(bx1, pT, bx2 - bx1, pB - pT);
+    const width = Math.max(1, bx2 - bx1);
 
-    ctx.strokeStyle = "rgba(140, 190, 225, 0.8)";
-    ctx.lineWidth = 1.5;
+    // Create horizontal gradient across the band
+    const grad = ctx.createLinearGradient(bx1, 0, bx2, 0);
+    grad.addColorStop(0.00, "#a8cde8");               // Outer soft blue
+    grad.addColorStop(0.20, "#cbe3f5");               // Transition
+    grad.addColorStop(0.50, "rgba(250, 253, 255, 0.95)"); // Center white/luminous peak
+    grad.addColorStop(0.80, "#cbe3f5");               // Transition
+    grad.addColorStop(1.00, "#a8cde8");               // Outer soft blue
+
+    ctx.fillStyle = grad;
+    ctx.fillRect(bx1, pT, width, pB - pT);
+
+    // Subtle crisp column borders
+    ctx.strokeStyle = "rgba(100, 155, 195, 0.65)";
+    ctx.lineWidth = 1.0;
     ctx.beginPath();
     ctx.moveTo(bx1, pT); ctx.lineTo(bx1, pB);
     ctx.moveTo(bx2, pT); ctx.lineTo(bx2, pB);
@@ -241,7 +251,7 @@ function draw(hideUI = false) {
   // 2. Axes & Tick Marks
   ctx.strokeStyle = "#ffffff";
   ctx.lineWidth = 1;
-  ctx.fillStyle = "#2c3e50";
+  ctx.fillStyle = "#1e293b";
   ctx.font = "bold 11px sans-serif";
 
   // Dynamic X-Ticks
@@ -272,14 +282,14 @@ function draw(hideUI = false) {
 
   // 3. FL 360 Labels
   flLabels.forEach((fl) => {
-    ctx.fillStyle = "red";
+    ctx.fillStyle = "#d92323";
     ctx.font = "bold 13px sans-serif";
     ctx.fillText(fl.text, toScreenX(fl.x), toScreenY(fl.y));
   });
 
-  // 4. Flight Profile Line
+  // 4. Flight Profile Line (Crisp high-contrast navy)
   if (points.length > 1) {
-    ctx.strokeStyle = "#17557d";
+    ctx.strokeStyle = "#0b375b";
     ctx.lineWidth = 2.8;
     ctx.beginPath();
     ctx.moveTo(toScreenX(points[0].x), toScreenY(points[0].y));
@@ -295,10 +305,15 @@ function draw(hideUI = false) {
     const sy = toScreenY(pt.y);
 
     if (pt.hasDot) {
-      ctx.fillStyle = "#17557d";
+      ctx.fillStyle = "#004880";
       ctx.beginPath();
       ctx.arc(sx, sy, 5.5, 0, Math.PI * 2);
       ctx.fill();
+
+      // Dot ring highlight
+      ctx.strokeStyle = "#ffffff";
+      ctx.lineWidth = 1.0;
+      ctx.stroke();
 
       if (!hideUI && activeTarget && activeTarget.type === 'point' && activeTarget.idx === i) {
         ctx.strokeStyle = "#ff4b4b";
@@ -312,7 +327,7 @@ function draw(hideUI = false) {
         ctx.save();
         ctx.translate(sx, sy - 10);
         ctx.rotate(-Math.PI / 2);
-        ctx.fillStyle = "#005596";
+        ctx.fillStyle = "#004880";
         ctx.font = "600 10.5px sans-serif";
         ctx.textAlign = "left";
         ctx.fillText(pt.label, 0, 3.5);
@@ -320,7 +335,7 @@ function draw(hideUI = false) {
       }
     } else {
       if (!hideUI && (hoveredVertexIdx === i || (activeTarget && activeTarget.type === 'point' && activeTarget.idx === i))) {
-        ctx.strokeStyle = "rgba(23, 85, 125, 0.45)";
+        ctx.strokeStyle = "rgba(11, 55, 91, 0.5)";
         ctx.lineWidth = 1.5;
         ctx.setLineDash([3, 3]);
         ctx.beginPath();
@@ -333,7 +348,7 @@ function draw(hideUI = false) {
 
   // 6. Tooltip HUD
   if (!hideUI && hoveredTooltip) {
-    ctx.fillStyle = "rgba(30, 30, 30, 0.85)";
+    ctx.fillStyle = "rgba(20, 25, 30, 0.88)";
     ctx.roundRect(hoveredTooltip.x + 10, hoveredTooltip.y - 30, hoveredTooltip.text.length * 7 + 16, 24, 4);
     ctx.fill();
     ctx.fillStyle = "#ffffff";
@@ -350,7 +365,6 @@ function distToSegment(px, py, x1, y1, x2, y2) {
   return Math.hypot(px - (x1 + t * dx), py - (y1 + t * dy));
 }
 
-// X-Axis input listener
 maxTimeInput.addEventListener('input', (e) => {
   const val = parseFloat(e.target.value);
   if (!isNaN(val) && val >= 10) {
@@ -366,7 +380,6 @@ cv.addEventListener('mousedown', (e) => {
   const dataX = toDataX(mx);
   const dataY = toDataY(my);
 
-  // Right Click: Toggle Dot vs Complete Delete
   if (e.button === 2) {
     e.preventDefault();
     for (let i = 0; i < points.length; i++) {
@@ -392,7 +405,6 @@ cv.addEventListener('mousedown', (e) => {
 
   if (e.button !== 0) return;
 
-  // FL Labels
   for (let i = 0; i < flLabels.length; i++) {
     const sx = toScreenX(flLabels[i].x), sy = toScreenY(flLabels[i].y);
     if (mx >= sx - 4 && mx <= sx + 60 && my >= sy - 16 && my <= sy + 4) {
@@ -406,7 +418,6 @@ cv.addEventListener('mousedown', (e) => {
     }
   }
 
-  // All Vertices
   for (let i = 0; i < points.length; i++) {
     if (Math.hypot(toScreenX(points[i].x) - mx, toScreenY(points[i].y) - my) < 12) {
       selectedPointIdx = i;
@@ -419,7 +430,6 @@ cv.addEventListener('mousedown', (e) => {
     }
   }
 
-  // Segments
   for (let i = 0; i < points.length - 1; i++) {
     const d = distToSegment(mx, my, toScreenX(points[i].x), toScreenY(points[i].y), toScreenX(points[i + 1].x), toScreenY(points[i + 1].y));
     if (d < 8) {
@@ -430,7 +440,6 @@ cv.addEventListener('mousedown', (e) => {
     }
   }
 
-  // Bands
   const edgeThreshold = Math.max(1.5, userMaxTime * 0.015);
   for (let i = 0; i < bands.length; i++) {
     if (Math.abs(dataX - bands[i].left) <= edgeThreshold) {
@@ -452,7 +461,6 @@ cv.addEventListener('mousedown', (e) => {
   }
 });
 
-// Double click: Revive dot OR insert new vertex
 cv.addEventListener('dblclick', (e) => {
   const rect = cv.getBoundingClientRect();
   const mx = e.clientX - rect.left;
@@ -635,4 +643,4 @@ draw();
 </html>
 """
 
-components.html(html_code, height=820, scrolling=False)
+components.html(html_code, height=720, scrolling=False)
