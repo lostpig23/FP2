@@ -88,6 +88,8 @@ html_code = """
   .btn:hover { background: #0e3752; }
   .btn-alt { background: #2a7b62; }
   .btn-alt:hover { background: #1c5543; }
+  .btn-fl { background: #cc1818; }
+  .btn-fl:hover { background: #990f0f; }
   .btn-r { background: #003a70; }
   .btn-r:hover { background: #002244; }
   #instructions {
@@ -108,26 +110,27 @@ html_code = """
     <div class="input-control">
       <label for="label-input">Edit Selected:</label>
     </div>
-    <input type="text" id="label-input" placeholder="Click any point, title, airport code, or red FL label to edit..." />
+    <input type="text" id="label-input" placeholder="Click any point, title, airport, or red FL label to edit..." />
     
     <div class="input-control">
       <label for="max-time-input">Max Time:</label>
       <input type="number" id="max-time-input" class="num-input" value="120" min="20" max="1000" step="5" />
     </div>
 
+    <button class="btn btn-fl" onclick="spawnFLLabel()" title="Spawn Red FL Label (Hot-key: F)">+ FL (F)</button>
     <button class="btn btn-r" onclick="spawnRBadge()" title="Spawn Ⓡ Symbol (Hot-key: R)">+ Ⓡ (R)</button>
     <button class="btn btn-alt" onclick="saveImage()">Export Image (J)</button>
     <button class="btn" onclick="saveData()">Export JSON (S)</button>
   </div>
   <div id="instructions">
     <b>Controls:</b><br>
-    • <b>Ⓡ (Reposition) Symbol:</b> Press <b>R</b> or click <b>+ Ⓡ (R)</b> to spawn. Drag inside to move | Drag its rim or scroll mouse wheel to resize | Right-click it to delete.<br>
-    • <b>Edit & Drag Red FL Text:</b> Click red text directly to edit in the bar below, or drag it anywhere.<br>
+    • <b>FL Labels:</b> Press <b>F</b> or click <b>+ FL (F)</b> to spawn. Drag to move | Edit text in bottom bar | <b>Right-click</b> to delete.<br>
+    • <b>Ⓡ (Reposition) Symbol:</b> Press <b>R</b> or click <b>+ Ⓡ (R)</b> to spawn. Drag to move | Scroll mouse wheel to resize | <b>Right-click</b> to delete.<br>
     • <b>Edit Header & Airports:</b> Click title ("3.7.2 Profile...") or airport codes (KPDX / KSEA) to edit.<br>
     • <b>Move Gradient Boundaries:</b> Click and drag any of the 4 vertical divider lines.<br>
     • <b>Hide dot (keep bend):</b> Right-click on a blue dot. <b>Revive dot:</b> Double-click invisible bend corner.<br>
     • <b>Delete corner:</b> Shift + Right-click on a corner. <b>Add bend & dot:</b> Double-click on any line segment.<br>
-    • <b>Shortcuts:</b> <b>R</b> = Spawn Ⓡ | <b>J</b> = Export PNG image | <b>S</b> = Export JSON data.
+    • <b>Shortcuts:</b> <b>F</b> = Spawn FL | <b>R</b> = Spawn Ⓡ | <b>J</b> = Export PNG image | <b>S</b> = Export JSON data.
   </div>
 </div>
 
@@ -196,7 +199,6 @@ let flLabels = [
   { text: "FL 360", x: 65.0, y: 34.0 }
 ];
 
-// Draggable & Resizable R-Badges: { x, y, radius }
 let rBadges = [
   { x: 70.0, y: 0.0, radius: 12 },
   { x: 86.0, y: 0.0, radius: 12 }
@@ -207,7 +209,7 @@ let selectedSegmentIdx = null;
 let selectedDividerIdx = null;
 let selectedFlIdx = null;
 let selectedRBadgeIdx = null;
-let rBadgeDragMode = null; // 'move' or 'resize'
+let rBadgeDragMode = null;
 let dragStart = null;
 let activeTarget = null;
 let hoveredTooltip = null;
@@ -224,6 +226,25 @@ function calculateTickStep(maxVal) {
   if (roughSteps <= 40) return 20;
   if (roughSteps <= 80) return 30;
   return 60;
+}
+
+function spawnFLLabel(atCursor = false) {
+  let spawnX = (dividers[0] + dividers[1]) / 2;
+  let spawnY = 36.0;
+  if (atCursor && mousePos) {
+    spawnX = toDataX(mousePos.x);
+    spawnY = toDataY(mousePos.y);
+  }
+  const newFL = { text: "FL 360", x: Math.max(0, Math.min(userMaxTime, spawnX)), y: Math.max(0, Math.min(70, spawnY)) };
+  flLabels.push(newFL);
+  const newIdx = flLabels.length - 1;
+  activeTarget = { type: 'fl', idx: newIdx };
+  selectedFlIdx = newIdx;
+  dragStart = { x: newFL.x, y: newFL.y };
+  labelInput.value = newFL.text;
+  labelInput.focus();
+  labelInput.select();
+  draw();
 }
 
 function spawnRBadge(atCursor = false) {
@@ -427,13 +448,12 @@ function draw(hideUI = false) {
     }
   });
 
-  // 7. Encircled Ⓡ (Reposition) Badges
+  // 7. Encircled Ⓡ Badges
   rBadges.forEach((rb, idx) => {
     const sx = toScreenX(rb.x);
     const sy = toScreenY(rb.y);
     const r = rb.radius;
 
-    // Outer Circle Fill (White background with crisp navy border)
     ctx.fillStyle = "#ffffff";
     ctx.beginPath();
     ctx.arc(sx, sy, r, 0, Math.PI * 2);
@@ -443,14 +463,12 @@ function draw(hideUI = false) {
     ctx.lineWidth = Math.max(1.8, r * 0.14);
     ctx.stroke();
 
-    // Inner letter 'R'
     ctx.fillStyle = (hoveredRBadgeIdx === idx || selectedRBadgeIdx === idx) ? "#0066cc" : "#082f4d";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.font = `bold ${Math.round(r * 1.35)}px sans-serif`;
     ctx.fillText("R", sx, sy + 0.5);
 
-    // Selected Resize Handle Indicator
     if (!hideUI && selectedRBadgeIdx === idx) {
       ctx.strokeStyle = "#ff4b4b";
       ctx.lineWidth = 1.5;
@@ -461,7 +479,7 @@ function draw(hideUI = false) {
       ctx.setLineDash([]);
     }
   });
-  ctx.textBaseline = "alphabetic"; // Reset
+  ctx.textBaseline = "alphabetic";
 
   // 8. Tooltip HUD
   if (!hideUI && hoveredTooltip) {
@@ -500,20 +518,40 @@ cv.addEventListener('mousedown', (e) => {
   const pL = toScreenX(X_MIN), pR = toScreenX(X_MAX);
   const pB = toScreenY(Y_MIN);
 
-  // Right-Click handling
+  // -------------------------------------------------------------
+  // RIGHT-CLICK: Delete FL Label, R-Badge, or Hide Point
+  // -------------------------------------------------------------
   if (e.button === 2) {
     e.preventDefault();
-    // 1. Delete R-Badge on right-click
+
+    // 1. Delete Red FL label on right-click
+    ctx.font = "bold 13px sans-serif";
+    for (let i = 0; i < flLabels.length; i++) {
+      const sx = toScreenX(flLabels[i].x), sy = toScreenY(flLabels[i].y);
+      const textW = Math.max(40, ctx.measureText(flLabels[i].text).width);
+      if (mx >= sx - 6 && mx <= sx + textW + 6 && my >= sy - 16 && my <= sy + 8) {
+        flLabels.splice(i, 1);
+        if (activeTarget && activeTarget.type === 'fl' && activeTarget.idx === i) {
+          activeTarget = null;
+          labelInput.value = "";
+        }
+        draw();
+        return;
+      }
+    }
+
+    // 2. Delete R-Badge on right-click
     for (let i = 0; i < rBadges.length; i++) {
       const sx = toScreenX(rBadges[i].x);
       const sy = toScreenY(rBadges[i].y);
-      if (Math.hypot(sx - mx, sy - my) <= rBadges[i].radius + 3) {
+      if (Math.hypot(sx - mx, sy - my) <= rBadges[i].radius + 4) {
         rBadges.splice(i, 1);
         draw();
         return;
       }
     }
-    // 2. Hide dot / remove corner
+
+    // 3. Hide dot / remove corner
     for (let i = 0; i < points.length; i++) {
       if (Math.hypot(toScreenX(points[i].x) - mx, toScreenY(points[i].y) - my) < 12) {
         if (e.shiftKey) {
@@ -537,19 +575,22 @@ cv.addEventListener('mousedown', (e) => {
 
   if (e.button !== 0) return;
 
-  // 1. Check R-Badges (Drag or Rim Resize)
+  // -------------------------------------------------------------
+  // LEFT-CLICK: Select, Edit, Drag
+  // -------------------------------------------------------------
+  // 1. Check R-Badges
   for (let i = 0; i < rBadges.length; i++) {
     const sx = toScreenX(rBadges[i].x);
     const sy = toScreenY(rBadges[i].y);
     const dist = Math.hypot(sx - mx, sy - my);
     const r = rBadges[i].radius;
 
-    if (Math.abs(dist - r) <= 4) { // Edge resize
+    if (Math.abs(dist - r) <= 4) {
       selectedRBadgeIdx = i;
       rBadgeDragMode = 'resize';
       draw();
       return;
-    } else if (dist < r) { // Center body drag
+    } else if (dist < r) {
       selectedRBadgeIdx = i;
       rBadgeDragMode = 'move';
       dragStart = { x: dataX, y: dataY };
@@ -559,7 +600,7 @@ cv.addEventListener('mousedown', (e) => {
     }
   }
 
-  // 2. Check Red FL Labels
+  // 2. Check Red FL Labels (Drag + Edit)
   ctx.font = "bold 13px sans-serif";
   for (let i = 0; i < flLabels.length; i++) {
     const sx = toScreenX(flLabels[i].x), sy = toScreenY(flLabels[i].y);
@@ -576,7 +617,7 @@ cv.addEventListener('mousedown', (e) => {
     }
   }
 
-  // 3. Check Header Title Click
+  // 3. Header Title Click
   ctx.font = "bold 17px sans-serif";
   const titleW = ctx.measureText(headerTitle).width;
   if (mx >= pL - 5 && mx <= pL + titleW + 5 && my >= PAD.top - 36 && my <= PAD.top - 10) {
@@ -587,7 +628,7 @@ cv.addEventListener('mousedown', (e) => {
     return;
   }
 
-  // 4. Check Origin Airport Click (Left)
+  // 4. Origin Airport Click
   ctx.font = "bold 14px sans-serif";
   const origW = ctx.measureText(originAirport).width;
   if (mx >= pL - 5 && mx <= pL + origW + 10 && my >= pB + 22 && my <= pB + 48) {
@@ -598,7 +639,7 @@ cv.addEventListener('mousedown', (e) => {
     return;
   }
 
-  // 5. Check Destination Airport Click (Right)
+  // 5. Destination Airport Click
   const destW = ctx.measureText(destAirport).width;
   if (mx >= pR - destW - 10 && mx <= pR + 5 && my >= pB + 22 && my <= pB + 48) {
     activeTarget = { type: 'dest' };
@@ -608,7 +649,7 @@ cv.addEventListener('mousedown', (e) => {
     return;
   }
 
-  // 6. Check Divider Lines
+  // 6. Divider Lines
   for (let i = 0; i < dividers.length; i++) {
     const divScreenX = toScreenX(dividers[i]);
     if (Math.abs(mx - divScreenX) <= 7) {
@@ -619,7 +660,7 @@ cv.addEventListener('mousedown', (e) => {
     }
   }
 
-  // 7. Check Points / Vertices
+  // 7. Points / Vertices
   for (let i = 0; i < points.length; i++) {
     if (Math.hypot(toScreenX(points[i].x) - mx, toScreenY(points[i].y) - my) < 12) {
       selectedPointIdx = i;
@@ -632,7 +673,7 @@ cv.addEventListener('mousedown', (e) => {
     }
   }
 
-  // 8. Check Segments
+  // 8. Segments
   for (let i = 0; i < points.length - 1; i++) {
     const d = distToSegment(mx, my, toScreenX(points[i].x), toScreenY(points[i].y), toScreenX(points[i + 1].x), toScreenY(points[i + 1].y));
     if (d < 8) {
@@ -675,7 +716,6 @@ cv.addEventListener('dblclick', (e) => {
   }
 });
 
-// Mouse Wheel: Dynamic scale for hovered R-Badge
 cv.addEventListener('wheel', (e) => {
   const rect = cv.getBoundingClientRect();
   const mx = e.clientX - rect.left;
@@ -894,13 +934,13 @@ function saveData() {
     max_time_min: userMaxTime,
     dividers: dividers.map(d => +d.toFixed(2)),
     r_badges: rBadges.map(b => ({ time_min: +b.x.toFixed(2), altitude_kft: +b.y.toFixed(2), radius_px: Math.round(b.radius) })),
+    fl_labels: flLabels.map(f => ({ text: f.text, time_min: +f.x.toFixed(2), altitude_kft: +f.y.toFixed(2) })),
     points: points.map(p => ({
       time_min: +p.x.toFixed(2),
       altitude_kft: +p.y.toFixed(2),
       label: p.label,
       hasDot: p.hasDot
-    })),
-    fl_labels: flLabels.map(f => ({ text: f.text, time_min: +f.x.toFixed(2), altitude_kft: +f.y.toFixed(2) }))
+    }))
   };
   const blob = new Blob([JSON.stringify(payload, null, 4)], { type: 'application/json' });
   const a = document.createElement('a');
@@ -911,7 +951,9 @@ function saveData() {
 
 window.addEventListener('keydown', (e) => {
   if (document.activeElement !== labelInput && document.activeElement !== maxTimeInput) {
-    if (e.key === 'r' || e.key === 'R') {
+    if (e.key === 'f' || e.key === 'F') {
+      spawnFLLabel(true);
+    } else if (e.key === 'r' || e.key === 'R') {
       spawnRBadge(true);
     } else if (e.key === 'j' || e.key === 'J') {
       saveImage();
@@ -927,4 +969,4 @@ draw();
 </html>
 """
 
-components.html(html_code, height=900, scrolling=False)
+components.html(html_code, height=760, scrolling=False)
