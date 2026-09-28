@@ -26,7 +26,7 @@ html_code = """
   }
   canvas {
     display: block;
-    border: 1px solid #7eaac7;
+    border: 1px solid #c8d9e6;
     border-radius: 4px;
     cursor: default;
   }
@@ -132,6 +132,7 @@ const ctx = cv.getContext('2d');
 const labelInput = document.getElementById('label-input');
 const maxTimeInput = document.getElementById('max-time-input');
 
+// Data Coordinate Boundaries
 let userMaxTime = 120.0;
 let X_MIN = -2;
 let X_MAX = 126.0;
@@ -140,6 +141,7 @@ const PAD = { left: 65, right: 35, top: 35, bottom: 55 };
 
 function updateXLimits(newMaxTime) {
   userMaxTime = Math.max(20, newMaxTime);
+  // Give 5% padding on the right side
   X_MIN = - (userMaxTime * 0.02);
   X_MAX = userMaxTime + (userMaxTime * 0.05);
 }
@@ -200,6 +202,7 @@ let activeTarget = null;
 let hoveredTooltip = null;
 let hoveredVertexIdx = null;
 
+// Determine clean tick intervals based on total duration
 function calculateTickStep(maxVal) {
   const roughSteps = maxVal / 5;
   if (roughSteps <= 10) return 5;
@@ -217,71 +220,28 @@ function draw(hideUI = false) {
 
   const pL = toScreenX(X_MIN), pR = toScreenX(X_MAX);
   const pT = toScreenY(Y_MAX), pB = toScreenY(Y_MIN);
-  const totalW = pR - pL;
-  const totalH = pB - pT;
+  ctx.fillStyle = "#d7ecf8";
+  ctx.fillRect(pL, pT, pR - pL, pB - pT);
 
-  // -------------------------------------------------------------
-  // 1. THREE-TIERED BACKGROUND GRADIENT (Light Middle -> Med -> Dark Edges)
-  // -------------------------------------------------------------
-  // Darkest: #82b0d8  |  Medium: #b2d2ec  |  Light (Center): #f1f7fc
-  const bgGrad = ctx.createLinearGradient(pL, 0, pR, 0);
-  bgGrad.addColorStop(0.00, "#82b0d8"); // Left: Dark Blue
-  bgGrad.addColorStop(0.24, "#82b0d8"); // Left Dark shelf
-  bgGrad.addColorStop(0.33, "#b2d2ec"); // Mid-Left: Medium Blue
-  bgGrad.addColorStop(0.44, "#f1f7fc"); // Center: Lightest White-Blue
-  bgGrad.addColorStop(0.56, "#f1f7fc"); // Center peak width
-  bgGrad.addColorStop(0.67, "#b2d2ec"); // Mid-Right: Medium Blue
-  bgGrad.addColorStop(0.76, "#82b0d8"); // Right Dark shelf
-  bgGrad.addColorStop(1.00, "#82b0d8"); // Right: Dark Blue
-
-  ctx.fillStyle = bgGrad;
-  ctx.fillRect(pL, pT, totalW, totalH);
-
-  // Subtle vertical section separators (matching Profile B column dividers)
-  ctx.strokeStyle = "rgba(255, 255, 255, 0.4)";
-  ctx.lineWidth = 1.0;
-  [0.25, 0.38, 0.62, 0.75].forEach(ratio => {
-    const divX = pL + totalW * ratio;
-    ctx.beginPath();
-    ctx.moveTo(divX, pT); ctx.lineTo(divX, pB);
-    ctx.stroke();
-  });
-
-  // -------------------------------------------------------------
-  // 2. SHADED OPERATIONAL BANDS WITH 3-TIER LIGHT->MED->DARK ACCENTS
-  // -------------------------------------------------------------
+  // 1. Shaded Bands
   bands.forEach((b) => {
     const bx1 = toScreenX(b.left);
     const bx2 = toScreenX(b.right);
-    const width = Math.max(1, bx2 - bx1);
+    ctx.fillStyle = "rgba(185, 224, 247, 0.75)";
+    ctx.fillRect(bx1, pT, bx2 - bx1, pB - pT);
 
-    // Symmetric 3-tier gradient inside the draggable band:
-    // Center: Lightest (#ffffff) -> Mid: Medium (#d0e5f7) -> Edge: Darker (#a0c5e5)
-    const bandGrad = ctx.createLinearGradient(bx1, 0, bx2, 0);
-    bandGrad.addColorStop(0.00, "rgba(160, 197, 229, 0.85)"); // Outer: Dark tier
-    bandGrad.addColorStop(0.25, "rgba(208, 229, 247, 0.90)"); // Middle: Medium tier
-    bandGrad.addColorStop(0.50, "rgba(255, 255, 255, 0.98)"); // Center: Light tier
-    bandGrad.addColorStop(0.75, "rgba(208, 229, 247, 0.90)"); // Middle: Medium tier
-    bandGrad.addColorStop(1.00, "rgba(160, 197, 229, 0.85)"); // Outer: Dark tier
-
-    ctx.fillStyle = bandGrad;
-    ctx.fillRect(bx1, pT, width, totalH);
-
-    // Band border definition
-    ctx.strokeStyle = "rgba(70, 130, 180, 0.7)";
-    ctx.lineWidth = 1.2;
+    ctx.strokeStyle = "rgba(140, 190, 225, 0.8)";
+    ctx.lineWidth = 1.5;
     ctx.beginPath();
     ctx.moveTo(bx1, pT); ctx.lineTo(bx1, pB);
     ctx.moveTo(bx2, pT); ctx.lineTo(bx2, pB);
     ctx.stroke();
   });
 
-  // -------------------------------------------------------------
-  // 3. AXES & TICKS
-  // -------------------------------------------------------------
-  ctx.strokeStyle = "rgba(255, 255, 255, 0.7)";
+  // 2. Axes & Tick Marks
+  ctx.strokeStyle = "#ffffff";
   ctx.lineWidth = 1;
-  ctx.fillStyle = "#1e293b";
+  ctx.fillStyle = "#2c3e50";
   ctx.font = "bold 11px sans-serif";
 
   // Dynamic X-Ticks
@@ -310,21 +270,17 @@ function draw(hideUI = false) {
   ctx.fillText("ALTITUDE (x1,000)", -55, 0);
   ctx.restore();
 
-  // -------------------------------------------------------------
-  // 4. FL 360 LABELS
-  // -------------------------------------------------------------
+  // 3. FL 360 Labels
   flLabels.forEach((fl) => {
-    ctx.fillStyle = "#cc1818";
+    ctx.fillStyle = "red";
     ctx.font = "bold 13px sans-serif";
     ctx.fillText(fl.text, toScreenX(fl.x), toScreenY(fl.y));
   });
 
-  // -------------------------------------------------------------
-  // 5. FLIGHT PROFILE PATH
-  // -------------------------------------------------------------
+  // 4. Flight Profile Line
   if (points.length > 1) {
-    ctx.strokeStyle = "#082f4d";
-    ctx.lineWidth = 3.0;
+    ctx.strokeStyle = "#17557d";
+    ctx.lineWidth = 2.8;
     ctx.beginPath();
     ctx.moveTo(toScreenX(points[0].x), toScreenY(points[0].y));
     for (let i = 1; i < points.length; i++) {
@@ -333,22 +289,16 @@ function draw(hideUI = false) {
     ctx.stroke();
   }
 
-  // -------------------------------------------------------------
-  // 6. CHECKPOINTS & VERTICAL LABELS
-  // -------------------------------------------------------------
+  // 5. Checkpoints & Vertices
   points.forEach((pt, i) => {
     const sx = toScreenX(pt.x);
     const sy = toScreenY(pt.y);
 
     if (pt.hasDot) {
-      ctx.fillStyle = "#004880";
+      ctx.fillStyle = "#17557d";
       ctx.beginPath();
       ctx.arc(sx, sy, 5.5, 0, Math.PI * 2);
       ctx.fill();
-
-      ctx.strokeStyle = "#ffffff";
-      ctx.lineWidth = 1.2;
-      ctx.stroke();
 
       if (!hideUI && activeTarget && activeTarget.type === 'point' && activeTarget.idx === i) {
         ctx.strokeStyle = "#ff4b4b";
@@ -362,7 +312,7 @@ function draw(hideUI = false) {
         ctx.save();
         ctx.translate(sx, sy - 10);
         ctx.rotate(-Math.PI / 2);
-        ctx.fillStyle = "#004075";
+        ctx.fillStyle = "#005596";
         ctx.font = "600 10.5px sans-serif";
         ctx.textAlign = "left";
         ctx.fillText(pt.label, 0, 3.5);
@@ -370,7 +320,7 @@ function draw(hideUI = false) {
       }
     } else {
       if (!hideUI && (hoveredVertexIdx === i || (activeTarget && activeTarget.type === 'point' && activeTarget.idx === i))) {
-        ctx.strokeStyle = "rgba(8, 47, 77, 0.55)";
+        ctx.strokeStyle = "rgba(23, 85, 125, 0.45)";
         ctx.lineWidth = 1.5;
         ctx.setLineDash([3, 3]);
         ctx.beginPath();
@@ -381,11 +331,9 @@ function draw(hideUI = false) {
     }
   });
 
-  // -------------------------------------------------------------
-  // 7. TOOLTIP HUD
-  // -------------------------------------------------------------
+  // 6. Tooltip HUD
   if (!hideUI && hoveredTooltip) {
-    ctx.fillStyle = "rgba(18, 24, 32, 0.90)";
+    ctx.fillStyle = "rgba(30, 30, 30, 0.85)";
     ctx.roundRect(hoveredTooltip.x + 10, hoveredTooltip.y - 30, hoveredTooltip.text.length * 7 + 16, 24, 4);
     ctx.fill();
     ctx.fillStyle = "#ffffff";
@@ -402,6 +350,7 @@ function distToSegment(px, py, x1, y1, x2, y2) {
   return Math.hypot(px - (x1 + t * dx), py - (y1 + t * dy));
 }
 
+// X-Axis input listener
 maxTimeInput.addEventListener('input', (e) => {
   const val = parseFloat(e.target.value);
   if (!isNaN(val) && val >= 10) {
@@ -417,6 +366,7 @@ cv.addEventListener('mousedown', (e) => {
   const dataX = toDataX(mx);
   const dataY = toDataY(my);
 
+  // Right Click: Toggle Dot vs Complete Delete
   if (e.button === 2) {
     e.preventDefault();
     for (let i = 0; i < points.length; i++) {
@@ -442,6 +392,7 @@ cv.addEventListener('mousedown', (e) => {
 
   if (e.button !== 0) return;
 
+  // FL Labels
   for (let i = 0; i < flLabels.length; i++) {
     const sx = toScreenX(flLabels[i].x), sy = toScreenY(flLabels[i].y);
     if (mx >= sx - 4 && mx <= sx + 60 && my >= sy - 16 && my <= sy + 4) {
@@ -455,6 +406,7 @@ cv.addEventListener('mousedown', (e) => {
     }
   }
 
+  // All Vertices
   for (let i = 0; i < points.length; i++) {
     if (Math.hypot(toScreenX(points[i].x) - mx, toScreenY(points[i].y) - my) < 12) {
       selectedPointIdx = i;
@@ -467,6 +419,7 @@ cv.addEventListener('mousedown', (e) => {
     }
   }
 
+  // Segments
   for (let i = 0; i < points.length - 1; i++) {
     const d = distToSegment(mx, my, toScreenX(points[i].x), toScreenY(points[i].y), toScreenX(points[i + 1].x), toScreenY(points[i + 1].y));
     if (d < 8) {
@@ -477,6 +430,7 @@ cv.addEventListener('mousedown', (e) => {
     }
   }
 
+  // Bands
   const edgeThreshold = Math.max(1.5, userMaxTime * 0.015);
   for (let i = 0; i < bands.length; i++) {
     if (Math.abs(dataX - bands[i].left) <= edgeThreshold) {
@@ -498,6 +452,7 @@ cv.addEventListener('mousedown', (e) => {
   }
 });
 
+// Double click: Revive dot OR insert new vertex
 cv.addEventListener('dblclick', (e) => {
   const rect = cv.getBoundingClientRect();
   const mx = e.clientX - rect.left;
