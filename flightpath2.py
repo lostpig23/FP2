@@ -48,6 +48,30 @@ html_code = """
     border-color: #17557d;
     box-shadow: 0 0 0 2px rgba(23,85,125,0.2);
   }
+  .input-control {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: bold;
+    font-size: 13px;
+    color: #17557d;
+    white-space: nowrap;
+  }
+  .num-input {
+    width: 65px;
+    padding: 7px 8px;
+    font-size: 13.5px;
+    font-weight: 600;
+    color: #17557d;
+    border: 1px solid #a0b8cc;
+    border-radius: 4px;
+    outline: none;
+    text-align: center;
+  }
+  .num-input:focus {
+    border-color: #17557d;
+    box-shadow: 0 0 0 2px rgba(23,85,125,0.2);
+  }
   .btn {
     padding: 8px 14px;
     font-size: 13.5px;
@@ -77,15 +101,23 @@ html_code = """
 <div id="container">
   <canvas id="cv" width="1050" height="540"></canvas>
   <div id="editor-bar">
-    <label for="label-input" style="font-weight: bold; font-size: 13px; color: #17557d;">Edit Selected Label:</label>
+    <div class="input-control">
+      <label for="label-input">Edit Label:</label>
+    </div>
     <input type="text" id="label-input" placeholder="Click any point or FL label to edit..." />
+    
+    <div class="input-control">
+      <label for="max-time-input">Max Time (Mins):</label>
+      <input type="number" id="max-time-input" class="num-input" value="120" min="20" max="1000" step="5" />
+    </div>
+
     <button class="btn btn-alt" onclick="saveImage()">Export Image (J)</button>
     <button class="btn" onclick="saveData()">Export JSON (S)</button>
   </div>
   <div id="instructions">
     <b>Controls:</b><br>
-    • <b>Create dot:</b> Double-click anywhere on the line.<br>
-    • <b>Hide dot (keep bend):</b> Right-click on a blue dot to hide the dot while preserving the corner bend.<br>
+    • <b>Edit X-Axis (Time):</b> Adjust the <b>Max Time (Mins)</b> box to expand or shrink the time range.<br>
+    • <b>Hide dot (keep bend):</b> Right-click on a blue dot to hide the marker while preserving the corner bend.<br>
     • <b>Revive dot:</b> Double-click any invisible bend corner to make the blue dot appear again.<br>
     • <b>Delete corner completely:</b> Shift + Right-click on a corner to remove the bend entirely.<br>
     • <b>Add bend & dot:</b> Double-click anywhere on a line.<br>
@@ -98,10 +130,22 @@ html_code = """
 const cv = document.getElementById('cv');
 const ctx = cv.getContext('2d');
 const labelInput = document.getElementById('label-input');
+const maxTimeInput = document.getElementById('max-time-input');
 
-const X_MIN = -2, X_MAX = 126;
+// Data Coordinate Boundaries
+let userMaxTime = 120.0;
+let X_MIN = -2;
+let X_MAX = 126.0;
 const Y_MIN = -2, Y_MAX = 72;
 const PAD = { left: 65, right: 35, top: 35, bottom: 55 };
+
+function updateXLimits(newMaxTime) {
+  userMaxTime = Math.max(20, newMaxTime);
+  // Give 5% padding on the right side
+  X_MIN = - (userMaxTime * 0.02);
+  X_MAX = userMaxTime + (userMaxTime * 0.05);
+}
+updateXLimits(120.0);
 
 function toScreenX(x) {
   return PAD.left + (x - X_MIN) / (X_MAX - X_MIN) * (cv.width - PAD.left - PAD.right);
@@ -116,20 +160,20 @@ function toDataY(py) {
   return Y_MIN + (cv.height - PAD.bottom - py) / (cv.height - PAD.top - PAD.bottom) * (Y_MAX - Y_MIN);
 }
 
-// Points: hasDot controls if the checkpoint dot and label are rendered
+// Initial Waypoints
 let points = [
   { x: 1.0, y: 0.0, label: "ENGINES RUNNING", hasDot: true },
   { x: 7.0, y: 0.0, label: "180° TURN F/O & CAPT", hasDot: true },
   { x: 12.0, y: 0.0, label: "DELAYED WINGTIPS EXTENSION", hasDot: true },
   { x: 15.0, y: 0.0, label: "HUD TAKEOFF", hasDot: true },
   { x: 23.0, y: 40.0, label: "VSD DEMO", hasDot: true },
-  { x: 39.0, y: 40.0, label: "", hasDot: false }, // Invisible corner (top of descent)
+  { x: 39.0, y: 40.0, label: "", hasDot: false },
   { x: 41.0, y: 26.0, label: "ILS", hasDot: true },
-  { x: 45.0, y: 0.0, label: "", hasDot: false }, // Invisible corner (touchdown)
+  { x: 45.0, y: 0.0, label: "", hasDot: false },
   { x: 54.0, y: 0.0, label: "HUD TAKEOFF", hasDot: true },
   { x: 55.0, y: 5.0, label: "ENG FAIL R (SEVERE DAMAGE)", hasDot: true },
-  { x: 65.0, y: 36.0, label: "", hasDot: false }, // Invisible corner
-  { x: 82.0, y: 36.0, label: "", hasDot: false }, // Invisible corner
+  { x: 65.0, y: 36.0, label: "", hasDot: false },
+  { x: 82.0, y: 36.0, label: "", hasDot: false },
   { x: 83.0, y: 33.0, label: "RNAV Y (LPV MINIMA)", hasDot: true },
   { x: 91.0, y: 0.0, label: "OEI G/A & M/A", hasDot: true },
   { x: 99.0, y: 5.0, label: "[ ] FUEL IMBALANCE", hasDot: true },
@@ -157,6 +201,16 @@ let dragStart = null;
 let activeTarget = null;
 let hoveredTooltip = null;
 let hoveredVertexIdx = null;
+
+// Determine clean tick intervals based on total duration
+function calculateTickStep(maxVal) {
+  const roughSteps = maxVal / 5;
+  if (roughSteps <= 10) return 5;
+  if (roughSteps <= 20) return 10;
+  if (roughSteps <= 40) return 20;
+  if (roughSteps <= 80) return 30;
+  return 60;
+}
 
 function draw(hideUI = false) {
   ctx.clearRect(0, 0, cv.width, cv.height);
@@ -190,7 +244,9 @@ function draw(hideUI = false) {
   ctx.fillStyle = "#2c3e50";
   ctx.font = "bold 11px sans-serif";
 
-  for (let x = 0; x <= 120; x += 30) {
+  // Dynamic X-Ticks
+  const xStep = calculateTickStep(userMaxTime);
+  for (let x = 0; x <= userMaxTime + 0.1; x += xStep) {
     const sx = toScreenX(x);
     ctx.beginPath();
     ctx.moveTo(sx, pT); ctx.lineTo(sx, pB);
@@ -199,6 +255,7 @@ function draw(hideUI = false) {
   }
   ctx.fillText("TIME (Mins)", (pL + pR) / 2 - 35, pB + 40);
 
+  // Y-Ticks
   for (let y = 0; y <= 70; y += 10) {
     const sy = toScreenY(y);
     ctx.beginPath();
@@ -220,7 +277,7 @@ function draw(hideUI = false) {
     ctx.fillText(fl.text, toScreenX(fl.x), toScreenY(fl.y));
   });
 
-  // 4. Flight Profile Continuous Line (Bends through all points)
+  // 4. Flight Profile Line
   if (points.length > 1) {
     ctx.strokeStyle = "#17557d";
     ctx.lineWidth = 2.8;
@@ -238,13 +295,11 @@ function draw(hideUI = false) {
     const sy = toScreenY(pt.y);
 
     if (pt.hasDot) {
-      // Visible Checkpoint Dot
       ctx.fillStyle = "#17557d";
       ctx.beginPath();
       ctx.arc(sx, sy, 5.5, 0, Math.PI * 2);
       ctx.fill();
 
-      // Red Selection Ring
       if (!hideUI && activeTarget && activeTarget.type === 'point' && activeTarget.idx === i) {
         ctx.strokeStyle = "#ff4b4b";
         ctx.lineWidth = 2.5;
@@ -253,7 +308,6 @@ function draw(hideUI = false) {
         ctx.stroke();
       }
 
-      // Vertical text label
       if (pt.label) {
         ctx.save();
         ctx.translate(sx, sy - 10);
@@ -265,7 +319,6 @@ function draw(hideUI = false) {
         ctx.restore();
       }
     } else {
-      // Invisible Corner (Draw subtle halo only when hovered or selected)
       if (!hideUI && (hoveredVertexIdx === i || (activeTarget && activeTarget.type === 'point' && activeTarget.idx === i))) {
         ctx.strokeStyle = "rgba(23, 85, 125, 0.45)";
         ctx.lineWidth = 1.5;
@@ -297,6 +350,15 @@ function distToSegment(px, py, x1, y1, x2, y2) {
   return Math.hypot(px - (x1 + t * dx), py - (y1 + t * dy));
 }
 
+// X-Axis input listener
+maxTimeInput.addEventListener('input', (e) => {
+  const val = parseFloat(e.target.value);
+  if (!isNaN(val) && val >= 10) {
+    updateXLimits(val);
+    draw();
+  }
+});
+
 cv.addEventListener('mousedown', (e) => {
   const rect = cv.getBoundingClientRect();
   const mx = e.clientX - rect.left;
@@ -304,20 +366,18 @@ cv.addEventListener('mousedown', (e) => {
   const dataX = toDataX(mx);
   const dataY = toDataY(my);
 
-  // --- RIGHT CLICK: Toggle Dot vs Complete Delete ---
+  // Right Click: Toggle Dot vs Complete Delete
   if (e.button === 2) {
     e.preventDefault();
     for (let i = 0; i < points.length; i++) {
       if (Math.hypot(toScreenX(points[i].x) - mx, toScreenY(points[i].y) - my) < 12) {
         if (e.shiftKey) {
-          // SHIFT + RIGHT CLICK: Completely remove the bend
           if (points.length > 2) {
             points.splice(i, 1);
             activeTarget = null;
             labelInput.value = "";
           }
         } else {
-          // RIGHT CLICK: Remove dot/label, but KEEP THE BEND
           points[i].hasDot = false;
           points[i].label = "";
           activeTarget = null;
@@ -332,7 +392,7 @@ cv.addEventListener('mousedown', (e) => {
 
   if (e.button !== 0) return;
 
-  // --- LEFT CLICK: FL LABELS ---
+  // FL Labels
   for (let i = 0; i < flLabels.length; i++) {
     const sx = toScreenX(flLabels[i].x), sy = toScreenY(flLabels[i].y);
     if (mx >= sx - 4 && mx <= sx + 60 && my >= sy - 16 && my <= sy + 4) {
@@ -346,7 +406,7 @@ cv.addEventListener('mousedown', (e) => {
     }
   }
 
-  // --- LEFT CLICK: ALL VERTICES (Visible dots AND invisible bends) ---
+  // All Vertices
   for (let i = 0; i < points.length; i++) {
     if (Math.hypot(toScreenX(points[i].x) - mx, toScreenY(points[i].y) - my) < 12) {
       selectedPointIdx = i;
@@ -359,7 +419,7 @@ cv.addEventListener('mousedown', (e) => {
     }
   }
 
-  // --- LEFT CLICK: SEGMENT DRAGGING ---
+  // Segments
   for (let i = 0; i < points.length - 1; i++) {
     const d = distToSegment(mx, my, toScreenX(points[i].x), toScreenY(points[i].y), toScreenX(points[i + 1].x), toScreenY(points[i + 1].y));
     if (d < 8) {
@@ -370,8 +430,8 @@ cv.addEventListener('mousedown', (e) => {
     }
   }
 
-  // --- LEFT CLICK: BANDS ---
-  const edgeThreshold = 2.0;
+  // Bands
+  const edgeThreshold = Math.max(1.5, userMaxTime * 0.015);
   for (let i = 0; i < bands.length; i++) {
     if (Math.abs(dataX - bands[i].left) <= edgeThreshold) {
       selectedBandIdx = i;
@@ -392,13 +452,12 @@ cv.addEventListener('mousedown', (e) => {
   }
 });
 
-// DOUBLE CLICK: Revive invisible dot OR add new bend along line
+// Double click: Revive dot OR insert new vertex
 cv.addEventListener('dblclick', (e) => {
   const rect = cv.getBoundingClientRect();
   const mx = e.clientX - rect.left;
   const my = e.clientY - rect.top;
 
-  // 1. If double clicking an existing invisible corner, turn dot back ON
   for (let i = 0; i < points.length; i++) {
     if (Math.hypot(toScreenX(points[i].x) - mx, toScreenY(points[i].y) - my) < 14) {
       points[i].hasDot = true;
@@ -411,7 +470,6 @@ cv.addEventListener('dblclick', (e) => {
     }
   }
 
-  // 2. Otherwise insert a new vertex along the line
   for (let i = 0; i < points.length - 1; i++) {
     const d = distToSegment(mx, my, toScreenX(points[i].x), toScreenY(points[i].y), toScreenX(points[i + 1].x), toScreenY(points[i + 1].y));
     if (d < 10) {
@@ -433,7 +491,6 @@ window.addEventListener('mousemove', (e) => {
   const dataX = toDataX(mx);
   const dataY = toDataY(my);
 
-  // Moving a vertex (dot or corner)
   if (selectedPointIdx !== null) {
     const idx = selectedPointIdx;
     const minX = idx > 0 ? points[idx - 1].x + 0.1 : X_MIN;
@@ -445,7 +502,6 @@ window.addEventListener('mousemove', (e) => {
     return;
   }
 
-  // Moving a line segment
   if (selectedSegmentIdx !== null) {
     const dx = dataX - dragStart.x;
     const dy = dataY - dragStart.y;
@@ -465,7 +521,6 @@ window.addEventListener('mousemove', (e) => {
     return;
   }
 
-  // Moving FL Label
   if (selectedFlIdx !== null) {
     flLabels[selectedFlIdx].x += dataX - dragStart.x;
     flLabels[selectedFlIdx].y += dataY - dragStart.y;
@@ -474,7 +529,6 @@ window.addEventListener('mousemove', (e) => {
     return;
   }
 
-  // Moving/resizing band
   if (selectedBandIdx !== null) {
     const dx = dataX - dragStart.x;
     const b = bands[selectedBandIdx];
@@ -490,7 +544,6 @@ window.addEventListener('mousemove', (e) => {
     return;
   }
 
-  // Hover detection for vertices
   hoveredVertexIdx = null;
   let cursor = 'default';
   for (let i = 0; i < points.length; i++) {
@@ -501,9 +554,10 @@ window.addEventListener('mousemove', (e) => {
     }
   }
 
+  const edgeThreshold = Math.max(1.5, userMaxTime * 0.015);
   if (cursor === 'default') {
     for (let i = 0; i < bands.length; i++) {
-      if (Math.abs(dataX - bands[i].left) <= 2.0 || Math.abs(dataX - bands[i].right) <= 2.0) {
+      if (Math.abs(dataX - bands[i].left) <= edgeThreshold || Math.abs(dataX - bands[i].right) <= edgeThreshold) {
         cursor = 'ew-resize'; break;
       }
     }
@@ -548,6 +602,7 @@ function saveImage() {
 
 function saveData() {
   const payload = {
+    max_time_min: userMaxTime,
     points: points.map(p => ({
       time_min: +p.x.toFixed(2),
       altitude_kft: +p.y.toFixed(2),
@@ -565,7 +620,7 @@ function saveData() {
 }
 
 window.addEventListener('keydown', (e) => {
-  if (document.activeElement !== labelInput) {
+  if (document.activeElement !== labelInput && document.activeElement !== maxTimeInput) {
     if (e.key === 'j' || e.key === 'J') {
       saveImage();
     } else if (e.key === 's' || e.key === 'S') {
@@ -580,4 +635,4 @@ draw();
 </html>
 """
 
-components.html(html_code, height=820, scrolling=False)
+components.html(html_code, height=720, scrolling=False)
