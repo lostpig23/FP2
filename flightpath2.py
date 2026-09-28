@@ -748,4 +748,4 @@ draw();
 </html>
 """
 
-components.html(html_code, height=750, scrolling=False)
+components.html(html_code, height=850, scrolling=False)
