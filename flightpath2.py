@@ -34,10 +34,12 @@ html_code = """
     margin-top: 12px;
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
+    flex-wrap: wrap;
   }
   #label-input {
     flex-grow: 1;
+    min-width: 180px;
     padding: 8px 12px;
     font-size: 14px;
     border: 1px solid #a0b8cc;
@@ -86,6 +88,8 @@ html_code = """
   .btn:hover { background: #0e3752; }
   .btn-alt { background: #2a7b62; }
   .btn-alt:hover { background: #1c5543; }
+  .btn-r { background: #003a70; }
+  .btn-r:hover { background: #002244; }
   #instructions {
     margin-top: 12px;
     padding: 10px 14px;
@@ -102,29 +106,28 @@ html_code = """
   <canvas id="cv" width="1050" height="570"></canvas>
   <div id="editor-bar">
     <div class="input-control">
-      <label for="label-input">Edit Selected Text:</label>
+      <label for="label-input">Edit Selected:</label>
     </div>
     <input type="text" id="label-input" placeholder="Click any point, title, airport code, or red FL label to edit..." />
     
     <div class="input-control">
-      <label for="max-time-input">Max Time (Mins):</label>
+      <label for="max-time-input">Max Time:</label>
       <input type="number" id="max-time-input" class="num-input" value="120" min="20" max="1000" step="5" />
     </div>
 
+    <button class="btn btn-r" onclick="spawnRBadge()" title="Spawn Ⓡ Symbol (Hot-key: R)">+ Ⓡ (R)</button>
     <button class="btn btn-alt" onclick="saveImage()">Export Image (J)</button>
     <button class="btn" onclick="saveData()">Export JSON (S)</button>
   </div>
   <div id="instructions">
     <b>Controls:</b><br>
-    • <b>Edit & Drag Red FL Text:</b> Click red text directly to edit its wording in the bar below, or drag it anywhere on the chart.<br>
-    • <b>Edit Header & Airports:</b> Click directly on the title ("3.7.2 Profile...") or airport labels (KPDX / KSEA) to edit.<br>
-    • <b>Move Gradient Boundaries:</b> Click and drag any of the 4 vertical divider lines between the dark, medium, and center light zones.<br>
-    • <b>Hide dot (keep bend):</b> Right-click on a blue dot to hide the marker while preserving the corner bend.<br>
-    • <b>Revive dot:</b> Double-click any invisible bend corner to make the blue dot appear again.<br>
-    • <b>Delete corner completely:</b> Shift + Right-click on a corner to remove the bend entirely.<br>
-    • <b>Add bend & dot:</b> Double-click anywhere on a line.<br>
-    • <b>Move:</b> Drag any dot, invisible bend corner, or straight line segment.<br>
-    • <b>Shortcuts:</b> Press <b>J</b> for PNG screenshot | Press <b>S</b> for JSON export.
+    • <b>Ⓡ (Reposition) Symbol:</b> Press <b>R</b> or click <b>+ Ⓡ (R)</b> to spawn. Drag inside to move | Drag its rim or scroll mouse wheel to resize | Right-click it to delete.<br>
+    • <b>Edit & Drag Red FL Text:</b> Click red text directly to edit in the bar below, or drag it anywhere.<br>
+    • <b>Edit Header & Airports:</b> Click title ("3.7.2 Profile...") or airport codes (KPDX / KSEA) to edit.<br>
+    • <b>Move Gradient Boundaries:</b> Click and drag any of the 4 vertical divider lines.<br>
+    • <b>Hide dot (keep bend):</b> Right-click on a blue dot. <b>Revive dot:</b> Double-click invisible bend corner.<br>
+    • <b>Delete corner:</b> Shift + Right-click on a corner. <b>Add bend & dot:</b> Double-click on any line segment.<br>
+    • <b>Shortcuts:</b> <b>R</b> = Spawn Ⓡ | <b>J</b> = Export PNG image | <b>S</b> = Export JSON data.
   </div>
 </div>
 
@@ -193,16 +196,26 @@ let flLabels = [
   { text: "FL 360", x: 65.0, y: 34.0 }
 ];
 
+// Draggable & Resizable R-Badges: { x, y, radius }
+let rBadges = [
+  { x: 70.0, y: 0.0, radius: 12 },
+  { x: 86.0, y: 0.0, radius: 12 }
+];
+
 let selectedPointIdx = null;
 let selectedSegmentIdx = null;
 let selectedDividerIdx = null;
 let selectedFlIdx = null;
+let selectedRBadgeIdx = null;
+let rBadgeDragMode = null; // 'move' or 'resize'
 let dragStart = null;
 let activeTarget = null;
 let hoveredTooltip = null;
 let hoveredVertexIdx = null;
 let hoveredDividerIdx = null;
 let hoveredFlIdx = null;
+let hoveredRBadgeIdx = null;
+let mousePos = { x: 500, y: 250 };
 
 function calculateTickStep(maxVal) {
   const roughSteps = maxVal / 5;
@@ -211,6 +224,20 @@ function calculateTickStep(maxVal) {
   if (roughSteps <= 40) return 20;
   if (roughSteps <= 80) return 30;
   return 60;
+}
+
+function spawnRBadge(atCursor = false) {
+  let spawnX = (dividers[1] + dividers[2]) / 2;
+  let spawnY = 20.0;
+  if (atCursor && mousePos) {
+    spawnX = toDataX(mousePos.x);
+    spawnY = toDataY(mousePos.y);
+  }
+  rBadges.push({ x: spawnX, y: Math.max(0, spawnY), radius: 12 });
+  selectedRBadgeIdx = rBadges.length - 1;
+  rBadgeDragMode = 'move';
+  dragStart = { x: spawnX, y: spawnY };
+  draw();
 }
 
 function draw(hideUI = false) {
@@ -324,7 +351,7 @@ function draw(hideUI = false) {
     ctx.strokeRect(pR - w - 6, pB + 26, w + 8, 18);
   }
 
-  // 4. Red FL Labels (Clickable, Draggable & Highlighted)
+  // 4. Red FL Labels
   ctx.textAlign = "left";
   ctx.font = "bold 13px sans-serif";
   flLabels.forEach((fl, idx) => {
@@ -400,7 +427,43 @@ function draw(hideUI = false) {
     }
   });
 
-  // 7. Tooltip HUD
+  // 7. Encircled Ⓡ (Reposition) Badges
+  rBadges.forEach((rb, idx) => {
+    const sx = toScreenX(rb.x);
+    const sy = toScreenY(rb.y);
+    const r = rb.radius;
+
+    // Outer Circle Fill (White background with crisp navy border)
+    ctx.fillStyle = "#ffffff";
+    ctx.beginPath();
+    ctx.arc(sx, sy, r, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.strokeStyle = (hoveredRBadgeIdx === idx || selectedRBadgeIdx === idx) ? "#0066cc" : "#082f4d";
+    ctx.lineWidth = Math.max(1.8, r * 0.14);
+    ctx.stroke();
+
+    // Inner letter 'R'
+    ctx.fillStyle = (hoveredRBadgeIdx === idx || selectedRBadgeIdx === idx) ? "#0066cc" : "#082f4d";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.font = `bold ${Math.round(r * 1.35)}px sans-serif`;
+    ctx.fillText("R", sx, sy + 0.5);
+
+    // Selected Resize Handle Indicator
+    if (!hideUI && selectedRBadgeIdx === idx) {
+      ctx.strokeStyle = "#ff4b4b";
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([2, 2]);
+      ctx.beginPath();
+      ctx.arc(sx, sy, r + 4, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+  });
+  ctx.textBaseline = "alphabetic"; // Reset
+
+  // 8. Tooltip HUD
   if (!hideUI && hoveredTooltip) {
     ctx.fillStyle = "rgba(18, 24, 32, 0.90)";
     ctx.roundRect(hoveredTooltip.x + 10, hoveredTooltip.y - 30, hoveredTooltip.text.length * 7 + 16, 24, 4);
@@ -437,8 +500,20 @@ cv.addEventListener('mousedown', (e) => {
   const pL = toScreenX(X_MIN), pR = toScreenX(X_MAX);
   const pB = toScreenY(Y_MIN);
 
+  // Right-Click handling
   if (e.button === 2) {
     e.preventDefault();
+    // 1. Delete R-Badge on right-click
+    for (let i = 0; i < rBadges.length; i++) {
+      const sx = toScreenX(rBadges[i].x);
+      const sy = toScreenY(rBadges[i].y);
+      if (Math.hypot(sx - mx, sy - my) <= rBadges[i].radius + 3) {
+        rBadges.splice(i, 1);
+        draw();
+        return;
+      }
+    }
+    // 2. Hide dot / remove corner
     for (let i = 0; i < points.length; i++) {
       if (Math.hypot(toScreenX(points[i].x) - mx, toScreenY(points[i].y) - my) < 12) {
         if (e.shiftKey) {
@@ -462,7 +537,29 @@ cv.addEventListener('mousedown', (e) => {
 
   if (e.button !== 0) return;
 
-  // 1. Check Red FL Labels FIRST (for Dragging + Editing)
+  // 1. Check R-Badges (Drag or Rim Resize)
+  for (let i = 0; i < rBadges.length; i++) {
+    const sx = toScreenX(rBadges[i].x);
+    const sy = toScreenY(rBadges[i].y);
+    const dist = Math.hypot(sx - mx, sy - my);
+    const r = rBadges[i].radius;
+
+    if (Math.abs(dist - r) <= 4) { // Edge resize
+      selectedRBadgeIdx = i;
+      rBadgeDragMode = 'resize';
+      draw();
+      return;
+    } else if (dist < r) { // Center body drag
+      selectedRBadgeIdx = i;
+      rBadgeDragMode = 'move';
+      dragStart = { x: dataX, y: dataY };
+      hoveredTooltip = { x: mx, y: my, text: `Ⓡ Reposition (${rBadges[i].x.toFixed(1)}m, ${rBadges[i].y.toFixed(1)}k)` };
+      draw();
+      return;
+    }
+  }
+
+  // 2. Check Red FL Labels
   ctx.font = "bold 13px sans-serif";
   for (let i = 0; i < flLabels.length; i++) {
     const sx = toScreenX(flLabels[i].x), sy = toScreenY(flLabels[i].y);
@@ -479,7 +576,7 @@ cv.addEventListener('mousedown', (e) => {
     }
   }
 
-  // 2. Check Header Title Click
+  // 3. Check Header Title Click
   ctx.font = "bold 17px sans-serif";
   const titleW = ctx.measureText(headerTitle).width;
   if (mx >= pL - 5 && mx <= pL + titleW + 5 && my >= PAD.top - 36 && my <= PAD.top - 10) {
@@ -490,7 +587,7 @@ cv.addEventListener('mousedown', (e) => {
     return;
   }
 
-  // 3. Check Origin Airport Click (Left)
+  // 4. Check Origin Airport Click (Left)
   ctx.font = "bold 14px sans-serif";
   const origW = ctx.measureText(originAirport).width;
   if (mx >= pL - 5 && mx <= pL + origW + 10 && my >= pB + 22 && my <= pB + 48) {
@@ -501,7 +598,7 @@ cv.addEventListener('mousedown', (e) => {
     return;
   }
 
-  // 4. Check Destination Airport Click (Right)
+  // 5. Check Destination Airport Click (Right)
   const destW = ctx.measureText(destAirport).width;
   if (mx >= pR - destW - 10 && mx <= pR + 5 && my >= pB + 22 && my <= pB + 48) {
     activeTarget = { type: 'dest' };
@@ -511,7 +608,7 @@ cv.addEventListener('mousedown', (e) => {
     return;
   }
 
-  // 5. Check Divider Lines
+  // 6. Check Divider Lines
   for (let i = 0; i < dividers.length; i++) {
     const divScreenX = toScreenX(dividers[i]);
     if (Math.abs(mx - divScreenX) <= 7) {
@@ -522,7 +619,7 @@ cv.addEventListener('mousedown', (e) => {
     }
   }
 
-  // 6. Check Points / Vertices
+  // 7. Check Points / Vertices
   for (let i = 0; i < points.length; i++) {
     if (Math.hypot(toScreenX(points[i].x) - mx, toScreenY(points[i].y) - my) < 12) {
       selectedPointIdx = i;
@@ -535,7 +632,7 @@ cv.addEventListener('mousedown', (e) => {
     }
   }
 
-  // 7. Check Segments
+  // 8. Check Segments
   for (let i = 0; i < points.length - 1; i++) {
     const d = distToSegment(mx, my, toScreenX(points[i].x), toScreenY(points[i].y), toScreenX(points[i + 1].x), toScreenY(points[i + 1].y));
     if (d < 8) {
@@ -578,12 +675,53 @@ cv.addEventListener('dblclick', (e) => {
   }
 });
 
+// Mouse Wheel: Dynamic scale for hovered R-Badge
+cv.addEventListener('wheel', (e) => {
+  const rect = cv.getBoundingClientRect();
+  const mx = e.clientX - rect.left;
+  const my = e.clientY - rect.top;
+
+  for (let i = 0; i < rBadges.length; i++) {
+    const sx = toScreenX(rBadges[i].x);
+    const sy = toScreenY(rBadges[i].y);
+    if (Math.hypot(sx - mx, sy - my) <= rBadges[i].radius + 6) {
+      e.preventDefault();
+      const delta = e.deltaY < 0 ? 1 : -1;
+      rBadges[i].radius = Math.max(8, Math.min(35, rBadges[i].radius + delta));
+      hoveredTooltip = { x: mx, y: my, text: `Size: ${rBadges[i].radius}px` };
+      draw();
+      return;
+    }
+  }
+}, { passive: false });
+
 window.addEventListener('mousemove', (e) => {
   const rect = cv.getBoundingClientRect();
   const mx = e.clientX - rect.left;
   const my = e.clientY - rect.top;
   const dataX = toDataX(mx);
   const dataY = toDataY(my);
+  mousePos = { x: mx, y: my };
+
+  // Dragging or Resizing R-Badge
+  if (selectedRBadgeIdx !== null) {
+    const rb = rBadges[selectedRBadgeIdx];
+    if (rBadgeDragMode === 'move') {
+      const dx = dataX - dragStart.x;
+      const dy = dataY - dragStart.y;
+      rb.x = Math.max(0, Math.min(userMaxTime, rb.x + dx));
+      rb.y = Math.max(0, Math.min(70, rb.y + dy));
+      dragStart = { x: dataX, y: dataY };
+      hoveredTooltip = { x: mx, y: my, text: `Ⓡ Reposition (${rb.x.toFixed(1)}m, ${rb.y.toFixed(1)}k)` };
+    } else if (rBadgeDragMode === 'resize') {
+      const sx = toScreenX(rb.x);
+      const sy = toScreenY(rb.y);
+      rb.radius = Math.max(8, Math.min(35, Math.hypot(sx - mx, sy - my)));
+      hoveredTooltip = { x: mx, y: my, text: `Size: ${Math.round(rb.radius)}px` };
+    }
+    draw();
+    return;
+  }
 
   // Dragging Red FL Label
   if (selectedFlIdx !== null) {
@@ -648,17 +786,37 @@ window.addEventListener('mousemove', (e) => {
   hoveredVertexIdx = null;
   hoveredDividerIdx = null;
   hoveredFlIdx = null;
+  hoveredRBadgeIdx = null;
   let cursor = 'default';
 
-  // Check hover over FL labels
-  ctx.font = "bold 13px sans-serif";
-  for (let i = 0; i < flLabels.length; i++) {
-    const sx = toScreenX(flLabels[i].x), sy = toScreenY(flLabels[i].y);
-    const textW = Math.max(40, ctx.measureText(flLabels[i].text).width);
-    if (mx >= sx - 6 && mx <= sx + textW + 6 && my >= sy - 16 && my <= sy + 8) {
-      hoveredFlIdx = i;
+  // Check hover over R-Badges
+  for (let i = 0; i < rBadges.length; i++) {
+    const sx = toScreenX(rBadges[i].x);
+    const sy = toScreenY(rBadges[i].y);
+    const dist = Math.hypot(sx - mx, sy - my);
+    const r = rBadges[i].radius;
+    if (Math.abs(dist - r) <= 4) {
+      hoveredRBadgeIdx = i;
+      cursor = 'nwse-resize';
+      break;
+    } else if (dist < r) {
+      hoveredRBadgeIdx = i;
       cursor = 'grab';
       break;
+    }
+  }
+
+  // Check hover over FL labels
+  if (cursor === 'default') {
+    ctx.font = "bold 13px sans-serif";
+    for (let i = 0; i < flLabels.length; i++) {
+      const sx = toScreenX(flLabels[i].x), sy = toScreenY(flLabels[i].y);
+      const textW = Math.max(40, ctx.measureText(flLabels[i].text).width);
+      if (mx >= sx - 6 && mx <= sx + textW + 6 && my >= sy - 16 && my <= sy + 8) {
+        hoveredFlIdx = i;
+        cursor = 'grab';
+        break;
+      }
     }
   }
 
@@ -692,6 +850,8 @@ window.addEventListener('mouseup', () => {
   selectedSegmentIdx = null;
   selectedDividerIdx = null;
   selectedFlIdx = null;
+  selectedRBadgeIdx = null;
+  rBadgeDragMode = null;
   hoveredTooltip = null;
   draw();
 });
@@ -733,6 +893,7 @@ function saveData() {
     destination_airport: destAirport,
     max_time_min: userMaxTime,
     dividers: dividers.map(d => +d.toFixed(2)),
+    r_badges: rBadges.map(b => ({ time_min: +b.x.toFixed(2), altitude_kft: +b.y.toFixed(2), radius_px: Math.round(b.radius) })),
     points: points.map(p => ({
       time_min: +p.x.toFixed(2),
       altitude_kft: +p.y.toFixed(2),
@@ -750,7 +911,9 @@ function saveData() {
 
 window.addEventListener('keydown', (e) => {
   if (document.activeElement !== labelInput && document.activeElement !== maxTimeInput) {
-    if (e.key === 'j' || e.key === 'J') {
+    if (e.key === 'r' || e.key === 'R') {
+      spawnRBadge(true);
+    } else if (e.key === 'j' || e.key === 'J') {
       saveImage();
     } else if (e.key === 's' || e.key === 'S') {
       saveData();
