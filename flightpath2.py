@@ -159,8 +159,6 @@ function toDataY(py) {
 }
 
 // 4 Draggable Gradient Boundaries (in time minutes)
-// Divides the profile into 5 zones:
-// [0 -> d0: Dark Blue] | [d0 -> d1: Medium Blue] | [d1 -> d2: Light White Center] | [d2 -> d3: Medium Blue] | [d3 -> Max: Dark Blue]
 let dividers = [28.0, 42.0, 72.0, 86.0];
 
 let points = [
@@ -218,12 +216,10 @@ function draw(hideUI = false) {
   const pT = toScreenY(Y_MAX), pB = toScreenY(Y_MIN);
   const totalH = pB - pT;
 
-  const sx0 = toScreenX(0);
   const sx1 = toScreenX(dividers[0]);
   const sx2 = toScreenX(dividers[1]);
   const sx3 = toScreenX(dividers[2]);
   const sx4 = toScreenX(dividers[3]);
-  const sxEnd = toScreenX(userMaxTime);
 
   // 1. FIVE TIERED GRADIENT ZONES
   // Zone 1: Dark Sky Blue (Departure)
@@ -246,17 +242,15 @@ function draw(hideUI = false) {
   ctx.fillStyle = "#8fb7dc";
   ctx.fillRect(sx4, pT, Math.max(0, pR - sx4), totalH);
 
-  // 2. DRAGGABLE VERTICAL DIVIDER LINES
+  // 2. CLEAN VERTICAL DIVIDER LINES (Without Top Dots)
   dividers.forEach((dVal, i) => {
     const divX = toScreenX(dVal);
-
-    // Active or Hovered Divider Highlight
     const isHovered = (hoveredDividerIdx === i);
     const isSelected = (selectedDividerIdx === i);
 
     if (isHovered || isSelected) {
       ctx.strokeStyle = "#ffffff";
-      ctx.lineWidth = 3.5;
+      ctx.lineWidth = 3.0;
     } else {
       ctx.strokeStyle = "rgba(255, 255, 255, 0.85)";
       ctx.lineWidth = 1.8;
@@ -266,14 +260,6 @@ function draw(hideUI = false) {
     ctx.moveTo(divX, pT);
     ctx.lineTo(divX, pB);
     ctx.stroke();
-
-    // Top grab handle tab
-    if (!hideUI) {
-      ctx.fillStyle = (isHovered || isSelected) ? "#0e3752" : "#17557d";
-      ctx.beginPath();
-      ctx.arc(divX, pT + 7, 4.5, 0, Math.PI * 2);
-      ctx.fill();
-    }
   });
 
   // 3. AXES & TICKS
@@ -430,7 +416,7 @@ cv.addEventListener('mousedown', (e) => {
 
   if (e.button !== 0) return;
 
-  // 1. Check Divider Lines First (Threshold: 7 pixels)
+  // 1. Check Divider Lines
   for (let i = 0; i < dividers.length; i++) {
     const divScreenX = toScreenX(dividers[i]);
     if (Math.abs(mx - divScreenX) <= 7) {
@@ -572,7 +558,6 @@ window.addEventListener('mousemove', (e) => {
   hoveredDividerIdx = null;
   let cursor = 'default';
 
-  // Check hover over dividers
   for (let i = 0; i < dividers.length; i++) {
     const divScreenX = toScreenX(dividers[i]);
     if (Math.abs(mx - divScreenX) <= 7) {
@@ -582,7 +567,6 @@ window.addEventListener('mousemove', (e) => {
     }
   }
 
-  // Check hover over points
   if (cursor === 'default') {
     for (let i = 0; i < points.length; i++) {
       if (Math.hypot(toScreenX(points[i].x) - mx, toScreenY(points[i].y) - my) < 12) {
