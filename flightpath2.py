@@ -969,4 +969,4 @@ draw();
 </html>
 """
 
-components.html(html_code, height=900, scrolling=False)
+components.html(html_code, height=760, scrolling=False)
