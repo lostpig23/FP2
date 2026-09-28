@@ -26,7 +26,7 @@ html_code = """
   }
   canvas {
     display: block;
-    border: 1px solid #c8d9e6;
+    border: 1px solid #7eaac7;
     border-radius: 4px;
     cursor: default;
   }
@@ -116,12 +116,12 @@ html_code = """
   </div>
   <div id="instructions">
     <b>Controls:</b><br>
-    • <b>Edit X-Axis (Time):</b> Adjust the <b>Max Time (Mins)</b> box to expand or shrink the time range.<br>
+    • <b>Move Gradient Boundaries:</b> Click and drag any of the 4 vertical divider lines between the dark, medium, and center light zones.<br>
     • <b>Hide dot (keep bend):</b> Right-click on a blue dot to hide the marker while preserving the corner bend.<br>
     • <b>Revive dot:</b> Double-click any invisible bend corner to make the blue dot appear again.<br>
     • <b>Delete corner completely:</b> Shift + Right-click on a corner to remove the bend entirely.<br>
     • <b>Add bend & dot:</b> Double-click anywhere on a line.<br>
-    • <b>Move:</b> Drag any dot, invisible bend corner, straight line segment, band, or red FL text.<br>
+    • <b>Move:</b> Drag any dot, invisible bend corner, straight line segment, or red FL text.<br>
     • <b>Shortcuts:</b> Press <b>J</b> for PNG screenshot | Press <b>S</b> for JSON export.
   </div>
 </div>
@@ -132,7 +132,6 @@ const ctx = cv.getContext('2d');
 const labelInput = document.getElementById('label-input');
 const maxTimeInput = document.getElementById('max-time-input');
 
-// Data Coordinate Boundaries
 let userMaxTime = 120.0;
 let X_MIN = -2;
 let X_MAX = 126.0;
@@ -141,7 +140,6 @@ const PAD = { left: 65, right: 35, top: 35, bottom: 55 };
 
 function updateXLimits(newMaxTime) {
   userMaxTime = Math.max(20, newMaxTime);
-  // Give 5% padding on the right side
   X_MIN = - (userMaxTime * 0.02);
   X_MAX = userMaxTime + (userMaxTime * 0.05);
 }
@@ -160,7 +158,11 @@ function toDataY(py) {
   return Y_MIN + (cv.height - PAD.bottom - py) / (cv.height - PAD.top - PAD.bottom) * (Y_MAX - Y_MIN);
 }
 
-// Initial Waypoints
+// 4 Draggable Gradient Boundaries (in time minutes)
+// Divides the profile into 5 zones:
+// [0 -> d0: Dark Blue] | [d0 -> d1: Medium Blue] | [d1 -> d2: Light White Center] | [d2 -> d3: Medium Blue] | [d3 -> Max: Dark Blue]
+let dividers = [28.0, 42.0, 72.0, 86.0];
+
 let points = [
   { x: 1.0, y: 0.0, label: "ENGINES RUNNING", hasDot: true },
   { x: 7.0, y: 0.0, label: "180° TURN F/O & CAPT", hasDot: true },
@@ -182,11 +184,6 @@ let points = [
   { x: 116.0, y: 0.0, label: "AFTER LANDING", hasDot: true }
 ];
 
-let bands = [
-  { left: 12.0, right: 26.0 },
-  { left: 81.0, right: 93.0 }
-];
-
 let flLabels = [
   { text: "FL 360", x: 23.0, y: 34.0 },
   { text: "FL 360", x: 65.0, y: 34.0 }
@@ -194,15 +191,14 @@ let flLabels = [
 
 let selectedPointIdx = null;
 let selectedSegmentIdx = null;
-let selectedBandIdx = null;
-let bandDragMode = null;
+let selectedDividerIdx = null;
 let selectedFlIdx = null;
 let dragStart = null;
 let activeTarget = null;
 let hoveredTooltip = null;
 let hoveredVertexIdx = null;
+let hoveredDividerIdx = null;
 
-// Determine clean tick intervals based on total duration
 function calculateTickStep(maxVal) {
   const roughSteps = maxVal / 5;
   if (roughSteps <= 10) return 5;
@@ -220,31 +216,72 @@ function draw(hideUI = false) {
 
   const pL = toScreenX(X_MIN), pR = toScreenX(X_MAX);
   const pT = toScreenY(Y_MAX), pB = toScreenY(Y_MIN);
-  ctx.fillStyle = "#d7ecf8";
-  ctx.fillRect(pL, pT, pR - pL, pB - pT);
+  const totalH = pB - pT;
 
-  // 1. Shaded Bands
-  bands.forEach((b) => {
-    const bx1 = toScreenX(b.left);
-    const bx2 = toScreenX(b.right);
-    ctx.fillStyle = "rgba(185, 224, 247, 0.75)";
-    ctx.fillRect(bx1, pT, bx2 - bx1, pB - pT);
+  const sx0 = toScreenX(0);
+  const sx1 = toScreenX(dividers[0]);
+  const sx2 = toScreenX(dividers[1]);
+  const sx3 = toScreenX(dividers[2]);
+  const sx4 = toScreenX(dividers[3]);
+  const sxEnd = toScreenX(userMaxTime);
 
-    ctx.strokeStyle = "rgba(140, 190, 225, 0.8)";
-    ctx.lineWidth = 1.5;
+  // 1. FIVE TIERED GRADIENT ZONES
+  // Zone 1: Dark Sky Blue (Departure)
+  ctx.fillStyle = "#8fb7dc";
+  ctx.fillRect(pL, pT, Math.max(0, sx1 - pL), totalH);
+
+  // Zone 2: Medium Blue (Climb / Entry Transition)
+  ctx.fillStyle = "#b8d5ed";
+  ctx.fillRect(sx1, pT, Math.max(0, sx2 - sx1), totalH);
+
+  // Zone 3: Lightest Pale Blue / White (Center Area)
+  ctx.fillStyle = "#edf5fb";
+  ctx.fillRect(sx2, pT, Math.max(0, sx3 - sx2), totalH);
+
+  // Zone 4: Medium Blue (Descent / Exit Transition)
+  ctx.fillStyle = "#b8d5ed";
+  ctx.fillRect(sx3, pT, Math.max(0, sx4 - sx3), totalH);
+
+  // Zone 5: Dark Sky Blue (Arrival)
+  ctx.fillStyle = "#8fb7dc";
+  ctx.fillRect(sx4, pT, Math.max(0, pR - sx4), totalH);
+
+  // 2. DRAGGABLE VERTICAL DIVIDER LINES
+  dividers.forEach((dVal, i) => {
+    const divX = toScreenX(dVal);
+
+    // Active or Hovered Divider Highlight
+    const isHovered = (hoveredDividerIdx === i);
+    const isSelected = (selectedDividerIdx === i);
+
+    if (isHovered || isSelected) {
+      ctx.strokeStyle = "#ffffff";
+      ctx.lineWidth = 3.5;
+    } else {
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.85)";
+      ctx.lineWidth = 1.8;
+    }
+
     ctx.beginPath();
-    ctx.moveTo(bx1, pT); ctx.lineTo(bx1, pB);
-    ctx.moveTo(bx2, pT); ctx.lineTo(bx2, pB);
+    ctx.moveTo(divX, pT);
+    ctx.lineTo(divX, pB);
     ctx.stroke();
+
+    // Top grab handle tab
+    if (!hideUI) {
+      ctx.fillStyle = (isHovered || isSelected) ? "#0e3752" : "#17557d";
+      ctx.beginPath();
+      ctx.arc(divX, pT + 7, 4.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
   });
 
-  // 2. Axes & Tick Marks
-  ctx.strokeStyle = "#ffffff";
+  // 3. AXES & TICKS
+  ctx.strokeStyle = "rgba(255, 255, 255, 0.75)";
   ctx.lineWidth = 1;
-  ctx.fillStyle = "#2c3e50";
+  ctx.fillStyle = "#1e293b";
   ctx.font = "bold 11px sans-serif";
 
-  // Dynamic X-Ticks
   const xStep = calculateTickStep(userMaxTime);
   for (let x = 0; x <= userMaxTime + 0.1; x += xStep) {
     const sx = toScreenX(x);
@@ -255,7 +292,6 @@ function draw(hideUI = false) {
   }
   ctx.fillText("TIME (Mins)", (pL + pR) / 2 - 35, pB + 40);
 
-  // Y-Ticks
   for (let y = 0; y <= 70; y += 10) {
     const sy = toScreenY(y);
     ctx.beginPath();
@@ -270,17 +306,17 @@ function draw(hideUI = false) {
   ctx.fillText("ALTITUDE (x1,000)", -55, 0);
   ctx.restore();
 
-  // 3. FL 360 Labels
+  // 4. FL 360 LABELS
   flLabels.forEach((fl) => {
-    ctx.fillStyle = "red";
+    ctx.fillStyle = "#cc1818";
     ctx.font = "bold 13px sans-serif";
     ctx.fillText(fl.text, toScreenX(fl.x), toScreenY(fl.y));
   });
 
-  // 4. Flight Profile Line
+  // 5. FLIGHT PROFILE PATH
   if (points.length > 1) {
-    ctx.strokeStyle = "#17557d";
-    ctx.lineWidth = 2.8;
+    ctx.strokeStyle = "#082f4d";
+    ctx.lineWidth = 3.0;
     ctx.beginPath();
     ctx.moveTo(toScreenX(points[0].x), toScreenY(points[0].y));
     for (let i = 1; i < points.length; i++) {
@@ -289,16 +325,20 @@ function draw(hideUI = false) {
     ctx.stroke();
   }
 
-  // 5. Checkpoints & Vertices
+  // 6. CHECKPOINTS & LABELS
   points.forEach((pt, i) => {
     const sx = toScreenX(pt.x);
     const sy = toScreenY(pt.y);
 
     if (pt.hasDot) {
-      ctx.fillStyle = "#17557d";
+      ctx.fillStyle = "#004880";
       ctx.beginPath();
       ctx.arc(sx, sy, 5.5, 0, Math.PI * 2);
       ctx.fill();
+
+      ctx.strokeStyle = "#ffffff";
+      ctx.lineWidth = 1.2;
+      ctx.stroke();
 
       if (!hideUI && activeTarget && activeTarget.type === 'point' && activeTarget.idx === i) {
         ctx.strokeStyle = "#ff4b4b";
@@ -312,7 +352,7 @@ function draw(hideUI = false) {
         ctx.save();
         ctx.translate(sx, sy - 10);
         ctx.rotate(-Math.PI / 2);
-        ctx.fillStyle = "#005596";
+        ctx.fillStyle = "#004075";
         ctx.font = "600 10.5px sans-serif";
         ctx.textAlign = "left";
         ctx.fillText(pt.label, 0, 3.5);
@@ -320,7 +360,7 @@ function draw(hideUI = false) {
       }
     } else {
       if (!hideUI && (hoveredVertexIdx === i || (activeTarget && activeTarget.type === 'point' && activeTarget.idx === i))) {
-        ctx.strokeStyle = "rgba(23, 85, 125, 0.45)";
+        ctx.strokeStyle = "rgba(8, 47, 77, 0.55)";
         ctx.lineWidth = 1.5;
         ctx.setLineDash([3, 3]);
         ctx.beginPath();
@@ -331,9 +371,9 @@ function draw(hideUI = false) {
     }
   });
 
-  // 6. Tooltip HUD
+  // 7. TOOLTIP
   if (!hideUI && hoveredTooltip) {
-    ctx.fillStyle = "rgba(30, 30, 30, 0.85)";
+    ctx.fillStyle = "rgba(18, 24, 32, 0.90)";
     ctx.roundRect(hoveredTooltip.x + 10, hoveredTooltip.y - 30, hoveredTooltip.text.length * 7 + 16, 24, 4);
     ctx.fill();
     ctx.fillStyle = "#ffffff";
@@ -350,7 +390,6 @@ function distToSegment(px, py, x1, y1, x2, y2) {
   return Math.hypot(px - (x1 + t * dx), py - (y1 + t * dy));
 }
 
-// X-Axis input listener
 maxTimeInput.addEventListener('input', (e) => {
   const val = parseFloat(e.target.value);
   if (!isNaN(val) && val >= 10) {
@@ -366,7 +405,6 @@ cv.addEventListener('mousedown', (e) => {
   const dataX = toDataX(mx);
   const dataY = toDataY(my);
 
-  // Right Click: Toggle Dot vs Complete Delete
   if (e.button === 2) {
     e.preventDefault();
     for (let i = 0; i < points.length; i++) {
@@ -392,7 +430,18 @@ cv.addEventListener('mousedown', (e) => {
 
   if (e.button !== 0) return;
 
-  // FL Labels
+  // 1. Check Divider Lines First (Threshold: 7 pixels)
+  for (let i = 0; i < dividers.length; i++) {
+    const divScreenX = toScreenX(dividers[i]);
+    if (Math.abs(mx - divScreenX) <= 7) {
+      selectedDividerIdx = i;
+      dragStart = { x: dataX };
+      draw();
+      return;
+    }
+  }
+
+  // 2. Check FL Labels
   for (let i = 0; i < flLabels.length; i++) {
     const sx = toScreenX(flLabels[i].x), sy = toScreenY(flLabels[i].y);
     if (mx >= sx - 4 && mx <= sx + 60 && my >= sy - 16 && my <= sy + 4) {
@@ -406,7 +455,7 @@ cv.addEventListener('mousedown', (e) => {
     }
   }
 
-  // All Vertices
+  // 3. Check Points / Vertices
   for (let i = 0; i < points.length; i++) {
     if (Math.hypot(toScreenX(points[i].x) - mx, toScreenY(points[i].y) - my) < 12) {
       selectedPointIdx = i;
@@ -419,7 +468,7 @@ cv.addEventListener('mousedown', (e) => {
     }
   }
 
-  // Segments
+  // 4. Check Segments
   for (let i = 0; i < points.length - 1; i++) {
     const d = distToSegment(mx, my, toScreenX(points[i].x), toScreenY(points[i].y), toScreenX(points[i + 1].x), toScreenY(points[i + 1].y));
     if (d < 8) {
@@ -429,30 +478,8 @@ cv.addEventListener('mousedown', (e) => {
       return;
     }
   }
-
-  // Bands
-  const edgeThreshold = Math.max(1.5, userMaxTime * 0.015);
-  for (let i = 0; i < bands.length; i++) {
-    if (Math.abs(dataX - bands[i].left) <= edgeThreshold) {
-      selectedBandIdx = i;
-      bandDragMode = 'left_edge';
-      dragStart = { x: dataX };
-      return;
-    } else if (Math.abs(dataX - bands[i].right) <= edgeThreshold) {
-      selectedBandIdx = i;
-      bandDragMode = 'right_edge';
-      dragStart = { x: dataX };
-      return;
-    } else if (dataX >= bands[i].left && dataX <= bands[i].right) {
-      selectedBandIdx = i;
-      bandDragMode = 'move';
-      dragStart = { x: dataX };
-      return;
-    }
-  }
 });
 
-// Double click: Revive dot OR insert new vertex
 cv.addEventListener('dblclick', (e) => {
   const rect = cv.getBoundingClientRect();
   const mx = e.clientX - rect.left;
@@ -490,6 +517,17 @@ window.addEventListener('mousemove', (e) => {
   const my = e.clientY - rect.top;
   const dataX = toDataX(mx);
   const dataY = toDataY(my);
+
+  // Dragging Gradient Boundary Divider
+  if (selectedDividerIdx !== null) {
+    const idx = selectedDividerIdx;
+    const minVal = (idx > 0) ? dividers[idx - 1] + 2.0 : 2.0;
+    const maxVal = (idx < dividers.length - 1) ? dividers[idx + 1] - 2.0 : userMaxTime - 2.0;
+    dividers[idx] = Math.max(minVal, Math.min(maxVal, dataX));
+    hoveredTooltip = { x: mx, y: my, text: `Boundary ${idx + 1}: ${dividers[idx].toFixed(1)} mins` };
+    draw();
+    return;
+  }
 
   if (selectedPointIdx !== null) {
     const idx = selectedPointIdx;
@@ -529,39 +567,32 @@ window.addEventListener('mousemove', (e) => {
     return;
   }
 
-  if (selectedBandIdx !== null) {
-    const dx = dataX - dragStart.x;
-    const b = bands[selectedBandIdx];
-    if (bandDragMode === 'move') {
-      b.left += dx; b.right += dx;
-    } else if (bandDragMode === 'left_edge') {
-      if (b.left + dx < b.right - 1.0) b.left += dx;
-    } else if (bandDragMode === 'right_edge') {
-      if (b.right + dx > b.left + 1.0) b.right += dx;
-    }
-    dragStart = { x: dataX };
-    draw();
-    return;
-  }
-
+  // Hover detection
   hoveredVertexIdx = null;
+  hoveredDividerIdx = null;
   let cursor = 'default';
-  for (let i = 0; i < points.length; i++) {
-    if (Math.hypot(toScreenX(points[i].x) - mx, toScreenY(points[i].y) - my) < 12) {
-      hoveredVertexIdx = i;
-      cursor = 'pointer';
+
+  // Check hover over dividers
+  for (let i = 0; i < dividers.length; i++) {
+    const divScreenX = toScreenX(dividers[i]);
+    if (Math.abs(mx - divScreenX) <= 7) {
+      hoveredDividerIdx = i;
+      cursor = 'col-resize';
       break;
     }
   }
 
-  const edgeThreshold = Math.max(1.5, userMaxTime * 0.015);
+  // Check hover over points
   if (cursor === 'default') {
-    for (let i = 0; i < bands.length; i++) {
-      if (Math.abs(dataX - bands[i].left) <= edgeThreshold || Math.abs(dataX - bands[i].right) <= edgeThreshold) {
-        cursor = 'ew-resize'; break;
+    for (let i = 0; i < points.length; i++) {
+      if (Math.hypot(toScreenX(points[i].x) - mx, toScreenY(points[i].y) - my) < 12) {
+        hoveredVertexIdx = i;
+        cursor = 'pointer';
+        break;
       }
     }
   }
+
   cv.style.cursor = cursor;
   draw();
 });
@@ -569,9 +600,8 @@ window.addEventListener('mousemove', (e) => {
 window.addEventListener('mouseup', () => {
   selectedPointIdx = null;
   selectedSegmentIdx = null;
-  selectedBandIdx = null;
+  selectedDividerIdx = null;
   selectedFlIdx = null;
-  bandDragMode = null;
   hoveredTooltip = null;
   draw();
 });
@@ -603,13 +633,13 @@ function saveImage() {
 function saveData() {
   const payload = {
     max_time_min: userMaxTime,
+    dividers: dividers.map(d => +d.toFixed(2)),
     points: points.map(p => ({
       time_min: +p.x.toFixed(2),
       altitude_kft: +p.y.toFixed(2),
       label: p.label,
       hasDot: p.hasDot
     })),
-    bands: bands.map(b => ({ left: +b.left.toFixed(2), right: +b.right.toFixed(2) })),
     fl_labels: flLabels.map(f => ({ text: f.text, time_min: +f.x.toFixed(2), altitude_kft: +f.y.toFixed(2) }))
   };
   const blob = new Blob([JSON.stringify(payload, null, 4)], { type: 'application/json' });
@@ -635,4 +665,4 @@ draw();
 </html>
 """
 
-components.html(html_code, height=820, scrolling=False)
+components.html(html_code, height=720, scrolling=False)
