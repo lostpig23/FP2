@@ -99,12 +99,12 @@ html_code = """
 </head>
 <body>
 <div id="container">
-  <canvas id="cv" width="1050" height="540"></canvas>
+  <canvas id="cv" width="1050" height="570"></canvas>
   <div id="editor-bar">
     <div class="input-control">
-      <label for="label-input">Edit Label:</label>
+      <label for="label-input">Edit Selected Text:</label>
     </div>
-    <input type="text" id="label-input" placeholder="Click any point or FL label to edit..." />
+    <input type="text" id="label-input" placeholder="Click any point, title, airport code, or FL label to edit..." />
     
     <div class="input-control">
       <label for="max-time-input">Max Time (Mins):</label>
@@ -116,6 +116,7 @@ html_code = """
   </div>
   <div id="instructions">
     <b>Controls:</b><br>
+    • <b>Edit Header & Airports:</b> Click directly on the title ("3.7.2 Profile...") or airport labels (KPDX / KSEA) to edit their text.<br>
     • <b>Move Gradient Boundaries:</b> Click and drag any of the 4 vertical divider lines between the dark, medium, and center light zones.<br>
     • <b>Hide dot (keep bend):</b> Right-click on a blue dot to hide the marker while preserving the corner bend.<br>
     • <b>Revive dot:</b> Double-click any invisible bend corner to make the blue dot appear again.<br>
@@ -136,7 +137,12 @@ let userMaxTime = 120.0;
 let X_MIN = -2;
 let X_MAX = 126.0;
 const Y_MIN = -2, Y_MAX = 72;
-const PAD = { left: 65, right: 35, top: 35, bottom: 55 };
+const PAD = { left: 65, right: 35, top: 48, bottom: 62 };
+
+// Editable Profile Title & Airport Codes
+let headerTitle = "3.7.2 Profile - Session B";
+let originAirport = "KPDX";
+let destAirport = "KSEA";
 
 function updateXLimits(newMaxTime) {
   userMaxTime = Math.max(20, newMaxTime);
@@ -216,33 +222,47 @@ function draw(hideUI = false) {
   const pT = toScreenY(Y_MAX), pB = toScreenY(Y_MIN);
   const totalH = pB - pT;
 
+  // -------------------------------------------------------------
+  // TOP PROFILE TITLE (Clickable / Editable)
+  // -------------------------------------------------------------
+  ctx.font = "bold 17px sans-serif";
+  ctx.fillStyle = (activeTarget && activeTarget.type === 'title') ? "#0e3752" : "#111827";
+  ctx.textAlign = "left";
+  ctx.fillText(headerTitle, pL, PAD.top - 16);
+
+  if (!hideUI && activeTarget && activeTarget.type === 'title') {
+    const textW = ctx.measureText(headerTitle).width;
+    ctx.strokeStyle = "#ff4b4b";
+    ctx.lineWidth = 1.8;
+    ctx.strokeRect(pL - 4, PAD.top - 32, textW + 8, 22);
+  }
+
+  // -------------------------------------------------------------
+  // 1. FIVE TIERED GRADIENT ZONES
+  // -------------------------------------------------------------
   const sx1 = toScreenX(dividers[0]);
   const sx2 = toScreenX(dividers[1]);
   const sx3 = toScreenX(dividers[2]);
   const sx4 = toScreenX(dividers[3]);
 
-  // 1. FIVE TIERED GRADIENT ZONES
-  // Zone 1: Dark Sky Blue (Departure)
   ctx.fillStyle = "#8fb7dc";
   ctx.fillRect(pL, pT, Math.max(0, sx1 - pL), totalH);
 
-  // Zone 2: Medium Blue (Climb / Entry Transition)
   ctx.fillStyle = "#b8d5ed";
   ctx.fillRect(sx1, pT, Math.max(0, sx2 - sx1), totalH);
 
-  // Zone 3: Lightest Pale Blue / White (Center Area)
   ctx.fillStyle = "#edf5fb";
   ctx.fillRect(sx2, pT, Math.max(0, sx3 - sx2), totalH);
 
-  // Zone 4: Medium Blue (Descent / Exit Transition)
   ctx.fillStyle = "#b8d5ed";
   ctx.fillRect(sx3, pT, Math.max(0, sx4 - sx3), totalH);
 
-  // Zone 5: Dark Sky Blue (Arrival)
   ctx.fillStyle = "#8fb7dc";
   ctx.fillRect(sx4, pT, Math.max(0, pR - sx4), totalH);
 
-  // 2. CLEAN VERTICAL DIVIDER LINES (Without Top Dots)
+  // -------------------------------------------------------------
+  // 2. CLEAN VERTICAL DIVIDER LINES
+  // -------------------------------------------------------------
   dividers.forEach((dVal, i) => {
     const divX = toScreenX(dVal);
     const isHovered = (hoveredDividerIdx === i);
@@ -262,7 +282,9 @@ function draw(hideUI = false) {
     ctx.stroke();
   });
 
+  // -------------------------------------------------------------
   // 3. AXES & TICKS
+  // -------------------------------------------------------------
   ctx.strokeStyle = "rgba(255, 255, 255, 0.75)";
   ctx.lineWidth = 1;
   ctx.fillStyle = "#1e293b";
@@ -276,7 +298,7 @@ function draw(hideUI = false) {
     ctx.stroke();
     ctx.fillText(x.toString(), sx - 8, pB + 18);
   }
-  ctx.fillText("TIME (Mins)", (pL + pR) / 2 - 35, pB + 40);
+  ctx.fillText("TIME (Mins)", (pL + pR) / 2 - 35, pB + 36);
 
   for (let y = 0; y <= 70; y += 10) {
     const sy = toScreenY(y);
@@ -292,14 +314,44 @@ function draw(hideUI = false) {
   ctx.fillText("ALTITUDE (x1,000)", -55, 0);
   ctx.restore();
 
+  // -------------------------------------------------------------
+  // AIRPORT CODES (Origin & Destination - Clickable / Editable)
+  // -------------------------------------------------------------
+  ctx.font = "bold 14px sans-serif";
+  ctx.fillStyle = "#1b8a36"; // Green highlight color
+
+  // Left Airport
+  ctx.textAlign = "left";
+  ctx.fillText(originAirport, pL + 2, pB + 40);
+  if (!hideUI && activeTarget && activeTarget.type === 'origin') {
+    const w = ctx.measureText(originAirport).width;
+    ctx.strokeStyle = "#ff4b4b";
+    ctx.lineWidth = 1.8;
+    ctx.strokeRect(pL - 2, pB + 26, w + 8, 18);
+  }
+
+  // Right Airport
+  ctx.textAlign = "right";
+  ctx.fillText(destAirport, pR - 2, pB + 40);
+  if (!hideUI && activeTarget && activeTarget.type === 'dest') {
+    const w = ctx.measureText(destAirport).width;
+    ctx.strokeStyle = "#ff4b4b";
+    ctx.lineWidth = 1.8;
+    ctx.strokeRect(pR - w - 6, pB + 26, w + 8, 18);
+  }
+
+  // -------------------------------------------------------------
   // 4. FL 360 LABELS
+  // -------------------------------------------------------------
   flLabels.forEach((fl) => {
     ctx.fillStyle = "#cc1818";
     ctx.font = "bold 13px sans-serif";
     ctx.fillText(fl.text, toScreenX(fl.x), toScreenY(fl.y));
   });
 
+  // -------------------------------------------------------------
   // 5. FLIGHT PROFILE PATH
+  // -------------------------------------------------------------
   if (points.length > 1) {
     ctx.strokeStyle = "#082f4d";
     ctx.lineWidth = 3.0;
@@ -311,7 +363,9 @@ function draw(hideUI = false) {
     ctx.stroke();
   }
 
+  // -------------------------------------------------------------
   // 6. CHECKPOINTS & LABELS
+  // -------------------------------------------------------------
   points.forEach((pt, i) => {
     const sx = toScreenX(pt.x);
     const sy = toScreenY(pt.y);
@@ -357,7 +411,9 @@ function draw(hideUI = false) {
     }
   });
 
+  // -------------------------------------------------------------
   // 7. TOOLTIP
+  // -------------------------------------------------------------
   if (!hideUI && hoveredTooltip) {
     ctx.fillStyle = "rgba(18, 24, 32, 0.90)";
     ctx.roundRect(hoveredTooltip.x + 10, hoveredTooltip.y - 30, hoveredTooltip.text.length * 7 + 16, 24, 4);
@@ -391,6 +447,10 @@ cv.addEventListener('mousedown', (e) => {
   const dataX = toDataX(mx);
   const dataY = toDataY(my);
 
+  const pL = toScreenX(X_MIN), pR = toScreenX(X_MAX);
+  const pB = toScreenY(Y_MIN);
+
+  // Right-click: hide dot or shift+delete corner
   if (e.button === 2) {
     e.preventDefault();
     for (let i = 0; i < points.length; i++) {
@@ -416,7 +476,39 @@ cv.addEventListener('mousedown', (e) => {
 
   if (e.button !== 0) return;
 
-  // 1. Check Divider Lines
+  // 1. Check Header Title Click
+  ctx.font = "bold 17px sans-serif";
+  const titleW = ctx.measureText(headerTitle).width;
+  if (mx >= pL - 5 && mx <= pL + titleW + 5 && my >= PAD.top - 36 && my <= PAD.top - 10) {
+    activeTarget = { type: 'title' };
+    labelInput.value = headerTitle;
+    labelInput.focus();
+    draw();
+    return;
+  }
+
+  // 2. Check Origin Airport Click (Left)
+  ctx.font = "bold 14px sans-serif";
+  const origW = ctx.measureText(originAirport).width;
+  if (mx >= pL - 5 && mx <= pL + origW + 10 && my >= pB + 22 && my <= pB + 48) {
+    activeTarget = { type: 'origin' };
+    labelInput.value = originAirport;
+    labelInput.focus();
+    draw();
+    return;
+  }
+
+  // 3. Check Destination Airport Click (Right)
+  const destW = ctx.measureText(destAirport).width;
+  if (mx >= pR - destW - 10 && mx <= pR + 5 && my >= pB + 22 && my <= pB + 48) {
+    activeTarget = { type: 'dest' };
+    labelInput.value = destAirport;
+    labelInput.focus();
+    draw();
+    return;
+  }
+
+  // 4. Check Divider Lines
   for (let i = 0; i < dividers.length; i++) {
     const divScreenX = toScreenX(dividers[i]);
     if (Math.abs(mx - divScreenX) <= 7) {
@@ -427,7 +519,7 @@ cv.addEventListener('mousedown', (e) => {
     }
   }
 
-  // 2. Check FL Labels
+  // 5. Check FL Labels
   for (let i = 0; i < flLabels.length; i++) {
     const sx = toScreenX(flLabels[i].x), sy = toScreenY(flLabels[i].y);
     if (mx >= sx - 4 && mx <= sx + 60 && my >= sy - 16 && my <= sy + 4) {
@@ -441,7 +533,7 @@ cv.addEventListener('mousedown', (e) => {
     }
   }
 
-  // 3. Check Points / Vertices
+  // 6. Check Points / Vertices
   for (let i = 0; i < points.length; i++) {
     if (Math.hypot(toScreenX(points[i].x) - mx, toScreenY(points[i].y) - my) < 12) {
       selectedPointIdx = i;
@@ -454,7 +546,7 @@ cv.addEventListener('mousedown', (e) => {
     }
   }
 
-  // 4. Check Segments
+  // 7. Check Segments
   for (let i = 0; i < points.length - 1; i++) {
     const d = distToSegment(mx, my, toScreenX(points[i].x), toScreenY(points[i].y), toScreenX(points[i + 1].x), toScreenY(points[i + 1].y));
     if (d < 8) {
@@ -504,7 +596,6 @@ window.addEventListener('mousemove', (e) => {
   const dataX = toDataX(mx);
   const dataY = toDataY(my);
 
-  // Dragging Gradient Boundary Divider
   if (selectedDividerIdx !== null) {
     const idx = selectedDividerIdx;
     const minVal = (idx > 0) ? dividers[idx - 1] + 2.0 : 2.0;
@@ -553,7 +644,6 @@ window.addEventListener('mousemove', (e) => {
     return;
   }
 
-  // Hover detection
   hoveredVertexIdx = null;
   hoveredDividerIdx = null;
   let cursor = 'default';
@@ -592,7 +682,13 @@ window.addEventListener('mouseup', () => {
 
 labelInput.addEventListener('input', (e) => {
   if (!activeTarget) return;
-  if (activeTarget.type === 'point' && points[activeTarget.idx]) {
+  if (activeTarget.type === 'title') {
+    headerTitle = e.target.value;
+  } else if (activeTarget.type === 'origin') {
+    originAirport = e.target.value;
+  } else if (activeTarget.type === 'dest') {
+    destAirport = e.target.value;
+  } else if (activeTarget.type === 'point' && points[activeTarget.idx]) {
     points[activeTarget.idx].label = e.target.value;
     if (e.target.value.trim() !== '') {
       points[activeTarget.idx].hasDot = true;
@@ -616,6 +712,9 @@ function saveImage() {
 
 function saveData() {
   const payload = {
+    title: headerTitle,
+    origin_airport: originAirport,
+    destination_airport: destAirport,
     max_time_min: userMaxTime,
     dividers: dividers.map(d => +d.toFixed(2)),
     points: points.map(p => ({
@@ -649,4 +748,4 @@ draw();
 </html>
 """
 
-components.html(html_code, height=820, scrolling=False)
+components.html(html_code, height=750, scrolling=False)
